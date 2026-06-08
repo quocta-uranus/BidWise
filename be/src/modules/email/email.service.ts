@@ -1,29 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private resend: Resend;
+  private from: string;
 
   constructor(private configService: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('mail.host'),
-      port: this.configService.get<number>('mail.port'),
-      secure: false,
-      auth: {
-        user: this.configService.get<string>('mail.user'),
-        pass: this.configService.get<string>('mail.pass'),
-      },
-    });
+    this.resend = new Resend(this.configService.get<string>('mail.resendApiKey'));
+    this.from = this.configService.get<string>('mail.from') ?? 'BidWise <onboarding@resend.dev>';
   }
 
   private loadTemplate(name: string, vars: Record<string, string>): string {
-    // In production (dist/), templates are copied next to the compiled JS
-    // In dev (src/), templates are in src/modules/email/templates/
     const isProd = process.env.NODE_ENV === 'production';
     const templatePath = isProd
       ? join(__dirname, 'templates', `${name}.html`)
@@ -51,12 +43,18 @@ export class EmailService {
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
-    const info = await this.transporter.sendMail({
-      from: this.configService.get<string>('mail.from'),
+    const { data, error } = await this.resend.emails.send({
+      from: this.from,
       to,
       subject,
       html,
     });
-    this.logger.log(`Email sent to ${to} — messageId: ${info.messageId}`);
+
+    if (error) {
+      this.logger.error(`Failed to send email to ${to}: ${JSON.stringify(error)}`);
+      throw new Error(`Email send failed: ${error.message}`);
+    }
+
+    this.logger.log(`Email sent to ${to} — id: ${data?.id}`);
   }
 }
