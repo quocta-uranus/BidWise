@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env files
+.env
+.env.local
+.env.*.local
+**/.env
+
+# Build output
+dist/
+.next/
+**/dist/
+
+# Generated (Railway sẽ generate lại qua postinstall)
+be/generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
