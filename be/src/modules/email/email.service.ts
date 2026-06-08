@@ -22,14 +22,12 @@ export class EmailService {
   }
 
   private loadTemplate(name: string, vars: Record<string, string>): string {
-    const templatePath = join(
-      process.cwd(),
-      'src',
-      'modules',
-      'email',
-      'templates',
-      `${name}.html`,
-    );
+    // In production (dist/), templates are copied next to the compiled JS
+    // In dev (src/), templates are in src/modules/email/templates/
+    const isProd = process.env.NODE_ENV === 'production';
+    const templatePath = isProd
+      ? join(__dirname, 'templates', `${name}.html`)
+      : join(process.cwd(), 'src', 'modules', 'email', 'templates', `${name}.html`);
     let html = readFileSync(templatePath, 'utf8');
     for (const [key, value] of Object.entries(vars)) {
       html = html.replaceAll(`{{${key}}}`, value);

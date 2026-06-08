@@ -43,13 +43,23 @@ exports.AppModule = AppModule = __decorate([
                 throttlers: [{ limit: 60, ttl: 60000 }],
             }),
             ioredis_1.RedisModule.forRootAsync({
-                useFactory: (configService) => ({
-                    type: 'single',
-                    url: `redis://${configService.get('redis.host')}:${configService.get('redis.port')}`,
-                    options: {
-                        password: configService.get('redis.password') || undefined,
-                    },
-                }),
+                useFactory: (configService) => {
+                    const redisUrl = process.env.REDIS_URL;
+                    if (redisUrl) {
+                        return {
+                            type: 'single',
+                            url: redisUrl,
+                            options: { tls: redisUrl.startsWith('rediss://') ? {} : undefined },
+                        };
+                    }
+                    return {
+                        type: 'single',
+                        url: `redis://${configService.get('redis.host')}:${configService.get('redis.port')}`,
+                        options: {
+                            password: configService.get('redis.password') || undefined,
+                        },
+                    };
+                },
                 inject: [config_1.ConfigService],
             }),
             prisma_module_1.PrismaModule,

@@ -31,13 +31,24 @@ import { RolesGuard } from './common/guards/roles.guard';
       throttlers: [{ limit: 60, ttl: 60000 }],
     }),
     RedisModule.forRootAsync({
-      useFactory: (configService: ConfigService) => ({
-        type: 'single',
-        url: `redis://${configService.get('redis.host')}:${configService.get('redis.port')}`,
-        options: {
-          password: configService.get('redis.password') || undefined,
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        // REDIS_URL takes priority (Upstash / Railway / production)
+        const redisUrl = process.env.REDIS_URL;
+        if (redisUrl) {
+          return {
+            type: 'single',
+            url: redisUrl,
+            options: { tls: redisUrl.startsWith('rediss://') ? {} : undefined },
+          };
+        }
+        return {
+          type: 'single',
+          url: `redis://${configService.get('redis.host')}:${configService.get('redis.port')}`,
+          options: {
+            password: configService.get('redis.password') || undefined,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     PrismaModule,
