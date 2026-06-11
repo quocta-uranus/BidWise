@@ -15,6 +15,8 @@ interface AuthState {
   logout: (logoutAll?: boolean) => Promise<void>;
 }
 
+let loadSessionPromise: Promise<void> | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
@@ -32,15 +34,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // Gọi khi app khởi động — dùng RT từ cookie để lấy AT mới
   loadSession: async () => {
-    try {
-      const refreshRes = await authApi.refresh();
-      const newAt = refreshRes.data.data.accessToken;
-      setAccessToken(newAt);
-      const meRes = await authApi.getMe();
-      set({ user: meRes.data.data, isAuthenticated: true, isLoading: false });
-    } catch {
-      set({ user: null, isAuthenticated: false, isLoading: false });
-    }
+    if (loadSessionPromise) return loadSessionPromise;
+    loadSessionPromise = (async () => {
+      try {
+        const refreshRes = await authApi.refresh();
+        const newAt = refreshRes.data.data.accessToken;
+        setAccessToken(newAt);
+        const meRes = await authApi.getMe();
+        set({ user: meRes.data.data, isAuthenticated: true, isLoading: false });
+      } catch {
+        set({ user: null, isAuthenticated: false, isLoading: false });
+      } finally {
+        loadSessionPromise = null;
+      }
+    })();
+    return loadSessionPromise;
   },
 
   logout: async (logoutAll = false) => {

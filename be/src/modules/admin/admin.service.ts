@@ -58,6 +58,44 @@ export class AdminService {
     return user;
   }
 
+  async createUser(dto: import('./dto/create-admin-user.dto').CreateAdminUserDto, createdBy: string) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new BadRequestException('EMAIL_ALREADY_EXISTS');
+
+    const role = await this.prisma.role.findUnique({ where: { name: dto.role } });
+    if (!role) throw new NotFoundException('ROLE_NOT_FOUND');
+
+    const bcrypt = require('bcryptjs');
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.password, salt);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        fullName: dto.fullName,
+        status: 'ACTIVE', // Bypass OTP
+        isEmailVerified: true,
+        userRoles: {
+          create: {
+            roleId: role.id,
+            assignedBy: createdBy,
+          },
+        },
+        accountLogs: {
+          create: {
+            action: 'CREATED_BY_ADMIN',
+            performedBy: createdBy,
+            metadata: { initialRole: dto.role },
+          },
+        },
+      },
+      omit: { passwordHash: true },
+    });
+
+    return user;
+  }
+
   // ─── ROLE MANAGEMENT ─────────────────────────────────────────────────────
 
   async assignRole(userId: string, roleType: RoleType, assignedBy: string): Promise<void> {
