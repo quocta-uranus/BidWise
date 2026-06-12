@@ -59,39 +59,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      {/* Top nav */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-black text-sm">B</span>
-            </div>
-            <span className="font-bold text-slate-900 text-lg">BidWise</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs font-bold">{initials}</span>
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-semibold text-slate-900 leading-tight">{user.fullName}</p>
-                <p className="text-xs text-slate-500 leading-tight">{user.email}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => logout()}
-              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span className="hidden sm:inline">Đăng xuất</span>
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="bg-[#f4f7fb] min-h-[calc(100vh-5rem)]">
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Welcome */}
