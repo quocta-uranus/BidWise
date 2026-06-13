@@ -35,7 +35,7 @@ function LoginContent() {
       setAuth(user, accessToken);
 
       // Redirect based on role: ADMIN → /admin, otherwise → dashboard
-      const hasAdminRole = user.roles.some((r) => r === 'ADMIN' || r === 'MODERATOR');
+      const hasAdminRole = user.roles.some((r:any) => r === 'ADMIN' || r === 'MODERATOR');
       router.push(hasAdminRole ? '/admin' : redirect);
 
     } catch (err: unknown) {
