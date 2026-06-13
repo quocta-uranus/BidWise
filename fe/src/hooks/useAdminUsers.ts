@@ -15,6 +15,8 @@ export function useAdminUsers(
       return res.data.data;
     },
     enabled: options?.enabled ?? true,
+    retry: 1,
+    retryDelay: 300,
   });
 }
 
