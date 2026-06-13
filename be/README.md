@@ -31,6 +31,32 @@
 $ npm install
 ```
 
+### Database setup (first time only)
+
+Project uses Supabase as the database. Each member needs to run the following steps once when setting up a new environment:
+
+1. Copy `.env.example` to `.env` and fill in `DATABASE_URL` with the Supabase connection string.
+
+2. Apply migrations:
+```bash
+$ npx prisma migrate deploy
+```
+
+3. Seed roles and permissions:
+```bash
+$ npx prisma db seed
+```
+
+> **Note:** Seed only needs to be run once per environment. It inserts static data (`roles`, `permissions`) that the app depends on. Without this step, users who register will not have a role assigned.
+
+### When a new migration is added
+
+```bash
+$ npx prisma migrate deploy
+```
+
+Re-run seed only if new static data was added to `prisma/seed.ts`.
+
 ## Compile and run the project
 
 ```bash
