@@ -54,6 +54,16 @@ export class AdminController {
     return this.adminService.getUserById(userId);
   }
 
+  @Post('users')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(RoleType.ADMIN)
+  createUser(
+    @Body() dto: import('./dto/create-admin-user.dto').CreateAdminUserDto,
+    @CurrentUser() admin: AccessTokenPayload,
+  ) {
+    return this.adminService.createUser(dto, admin.sub);
+  }
+
   @Post('users/:userId/roles')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleType.ADMIN)

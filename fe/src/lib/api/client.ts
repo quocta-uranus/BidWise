@@ -51,6 +51,7 @@ apiClient.interceptors.response.use(
     const isAuthRoute = original.url?.includes('/auth/') && !original.url?.includes('/auth/change-password');
 
     if (error.response?.status !== 401 || original._retry || isAuthRoute) {
+
       return Promise.reject(error);
     }
 

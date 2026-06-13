@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../token/token.service';
 import { EmailService } from '../email/email.service';
@@ -14,19 +15,17 @@ export class AdminService {
     private prisma: PrismaService,
     private tokenService: TokenService,
     private emailService: EmailService,
-  ) {}
-
-  // ─── USER MANAGEMENT ─────────────────────────────────────────────────────
+  ) { }
 
   async listUsers(page = 1, limit = 20, search?: string) {
     const skip = (page - 1) * limit;
     const where = search
       ? {
-          OR: [
-            { email: { contains: search, mode: 'insensitive' as const } },
-            { fullName: { contains: search, mode: 'insensitive' as const } },
-          ],
-        }
+        OR: [
+          { email: { contains: search, mode: 'insensitive' as const } },
+          { fullName: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }
       : {};
 
     const [users, total] = await Promise.all([
@@ -58,7 +57,42 @@ export class AdminService {
     return user;
   }
 
-  // ─── ROLE MANAGEMENT ─────────────────────────────────────────────────────
+  async createUser(dto: import('./dto/create-admin-user.dto').CreateAdminUserDto, createdBy: string) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new BadRequestException('EMAIL_ALREADY_EXISTS');
+
+    const role = await this.prisma.role.findUnique({ where: { name: dto.role } });
+    if (!role) throw new NotFoundException('ROLE_NOT_FOUND');
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.password, salt);
+
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        fullName: dto.fullName,
+        status: 'ACTIVE', // Bypass OTP
+        emailVerifiedAt: new Date(),
+        userRoles: {
+          create: {
+            roleId: role.id,
+            assignedBy: createdBy,
+          },
+        },
+        accountLogs: {
+          create: {
+            action: 'REGISTERED',
+            performedBy: createdBy,
+            metadata: { initialRole: dto.role, createdByAdmin: true },
+          },
+        },
+      },
+      omit: { passwordHash: true },
+    });
+
+    return user;
+  }
 
   async assignRole(userId: string, roleType: RoleType, assignedBy: string): Promise<void> {
     const [user, role] = await Promise.all([
@@ -102,8 +136,6 @@ export class AdminService {
       }),
     ]);
   }
-
-  // ─── SUSPEND / UNSUSPEND ─────────────────────────────────────────────────
 
   async suspendUser(
     userId: string,

@@ -33,7 +33,11 @@ function LoginContent() {
       }
       const { user, accessToken } = data as { user: any; accessToken: string };
       setAuth(user, accessToken);
-      router.push(redirect);
+
+      // Redirect based on role: ADMIN → /admin, otherwise → dashboard
+      const hasAdminRole = user.roles.some((r) => r === 'ADMIN' || r === 'MODERATOR');
+      router.push(hasAdminRole ? '/admin' : redirect);
+
     } catch (err: unknown) {
       const code = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
