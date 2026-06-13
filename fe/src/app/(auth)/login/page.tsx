@@ -16,6 +16,8 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [twoFactorToken, setTwoFactorToken] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +25,13 @@ function LoginContent() {
     setLoading(true);
     try {
       const res = await authApi.login(form);
-      const { user, accessToken } = res.data.data;
+      const data = res.data.data as any;
+      if ('requires2fa' in data && data.requires2fa) {
+        setTwoFactorToken(data.twoFactorToken);
+        setLoading(false);
+        return;
+      }
+      const { user, accessToken } = data as { user: any; accessToken: string };
       setAuth(user, accessToken);
       router.push(redirect);
     } catch (err: unknown) {
@@ -39,6 +47,80 @@ function LoginContent() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleTwoFactorSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await authApi.verify2fa({
+        twoFactorToken,
+        code: twoFactorCode,
+      });
+      const { user, accessToken } = res.data.data;
+      setAuth(user, accessToken);
+      router.push(redirect);
+    } catch (err: unknown) {
+      setError('Mã xác thực 2FA không chính xác hoặc đã hết hạn.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (twoFactorToken) {
+    return (
+      <div>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-slate-900 mb-1.5">Xác thực 2 lớp (2FA)</h2>
+          <p className="text-slate-500 text-sm">Nhập mã xác thực 6 chữ số từ ứng dụng Google Authenticator của bạn.</p>
+        </div>
+
+        <form onSubmit={handleTwoFactorSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-slate-700">Mã xác thực</label>
+            <input
+              type="text"
+              required
+              maxLength={6}
+              pattern="[0-9]{6}"
+              value={twoFactorCode}
+              onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-center text-lg tracking-[0.5em] font-mono placeholder:text-slate-300 outline-none transition-all focus:border-blue-500 focus:ring-3 focus:ring-blue-500/10"
+              placeholder="000000"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-3.5 py-3">
+              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm rounded-xl transition-all shadow-sm shadow-blue-600/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? 'Đang xác nhận...' : 'Xác nhận'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setTwoFactorToken('');
+              setError('');
+            }}
+            className="w-full h-11 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm rounded-xl transition-all"
+          >
+            Quay lại
+          </button>
+        </form>
+      </div>
+    );
   }
 
   return (

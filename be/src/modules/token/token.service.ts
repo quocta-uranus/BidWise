@@ -183,4 +183,17 @@ export class TokenService {
 
     return newPair;
   }
+
+  generateTemp2faToken(userId: string): string {
+    return this.jwtService.sign({ sub: userId, type: '2FA_PENDING' }, {
+      secret: this.configService.get<string>('jwt.accessSecret'),
+      expiresIn: '5m',
+    });
+  }
+
+  verifyTemp2faToken(token: string): { sub: string; type: string } {
+    return this.jwtService.verify<{ sub: string; type: string }>(token, {
+      secret: this.configService.get<string>('jwt.accessSecret'),
+    });
+  }
 }

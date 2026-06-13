@@ -92,6 +92,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto, getIp(req), req.headers['user-agent']);
+    if ('requires2fa' in result) {
+      return result;
+    }
     setRefreshCookie(res, result.refreshToken);
     const { refreshToken: _, ...data } = result;
     return data;
@@ -163,5 +166,49 @@ export class AuthController {
   ) {
     const token = (req.headers['authorization'] ?? '').replace('Bearer ', '');
     return this.authService.changePassword(user.sub, dto, user, token);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/generate')
+  @HttpCode(HttpStatus.OK)
+  generate2faSecret(@CurrentUser() user: AccessTokenPayload) {
+    return this.authService.generate2faSecret(user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/enable')
+  @HttpCode(HttpStatus.OK)
+  async enable2fa(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body('code') code: string,
+  ) {
+    await this.authService.enable2fa(user.sub, code);
+    return { message: '2FA enabled successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.OK)
+  async disable2fa(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body('code') code: string,
+  ) {
+    await this.authService.disable2fa(user.sub, code);
+    return { message: '2FA disabled successfully' };
+  }
+
+  @Public()
+  @Post('2fa/verify')
+  @HttpCode(HttpStatus.OK)
+  async verify2faLogin(
+    @Body('twoFactorToken') token: string,
+    @Body('code') code: string,
+    @Req() req: AnyReq,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.verify2faLogin(token, code, getIp(req), req.headers['user-agent']);
+    setRefreshCookie(res, result.refreshToken);
+    const { refreshToken: _, ...data } = result;
+    return data;
   }
 }

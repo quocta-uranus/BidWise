@@ -69,6 +69,8 @@ model User {
   lastLoginAt      DateTime?
   failedLoginCount Int        @default(0)
   lockedUntil      DateTime?
+  twoFactorEnabled Boolean    @default(false)
+  twoFactorSecret  String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   deletedAt        DateTime?
