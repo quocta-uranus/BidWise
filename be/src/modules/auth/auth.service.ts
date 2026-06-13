@@ -15,6 +15,7 @@ import { TokenService } from '../token/token.service';
 import { SessionService } from '../session/session.service';
 import { EmailService } from '../email/email.service';
 import { RoleType } from '@prisma/client';
+import { generateSecret, verifyTotp } from '../../common/utils/totp.util';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -166,6 +167,15 @@ export class AuthService {
         lastLoginAt: new Date(),
       },
     });
+
+    if (user.twoFactorEnabled) {
+      const twoFactorToken = this.tokenService.generateTemp2faToken(user.id);
+      return {
+        requires2fa: true,
+        twoFactorToken,
+        userId: user.id,
+      };
+    }
 
     return this.createAuthResponse(user, ipAddress, userAgent);
   }
@@ -367,5 +377,65 @@ export class AuthService {
         status: user.status,
       },
     };
+  }
+
+  // ─── 2FA ─────────────────────────────────────────────────────────────────
+
+  async generate2faSecret(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const secret = generateSecret();
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorSecret: secret },
+    });
+    const provisioningUri = `otpauth://totp/BidWise:${user.email}?secret=${secret}&issuer=BidWise`;
+    return { secret, provisioningUri };
+  }
+
+  async enable2fa(userId: string, code: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.twoFactorSecret) throw new BadRequestException('2FA_NOT_INITIALIZED');
+    const isValid = verifyTotp(user.twoFactorSecret, code);
+    if (!isValid) throw new BadRequestException('INVALID_2FA_CODE');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true },
+    });
+  }
+
+  async disable2fa(userId: string, code: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('2FA_NOT_ENABLED');
+    }
+    const isValid = verifyTotp(user.twoFactorSecret, code);
+    if (!isValid) throw new BadRequestException('INVALID_2FA_CODE');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: false, twoFactorSecret: null },
+    });
+  }
+
+  async verify2faLogin(token: string, code: string, ipAddress: string, userAgent?: string) {
+    let payload;
+    try {
+      payload = this.tokenService.verifyTemp2faToken(token);
+    } catch {
+      throw new UnauthorizedException('INVALID_2FA_TOKEN');
+    }
+    if (payload.type !== '2FA_PENDING') {
+      throw new UnauthorizedException('INVALID_2FA_TOKEN');
+    }
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: payload.sub },
+      include: { userRoles: { include: { role: true } } },
+    });
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new UnauthorizedException('2FA_NOT_ENABLED');
+    }
+    const isValid = verifyTotp(user.twoFactorSecret, code);
+    if (!isValid) throw new UnauthorizedException('INVALID_2FA_CODE');
+
+    return this.createAuthResponse(user, ipAddress, userAgent);
   }
 }

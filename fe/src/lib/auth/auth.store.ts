@@ -13,6 +13,7 @@ interface AuthState {
   clearAuth: () => void;
   loadSession: () => Promise<void>;
   logout: (logoutAll?: boolean) => Promise<void>;
+  updateUser: (partialUser: Partial<AuthUser>) => void;
 }
 
 let loadSessionPromise: Promise<void> | null = null;
@@ -58,4 +59,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       get().clearAuth();
     }
   },
+
+  updateUser: (partialUser) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, ...partialUser } : null,
+    }));
+  },
 }));
+

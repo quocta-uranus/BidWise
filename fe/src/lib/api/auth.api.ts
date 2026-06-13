@@ -5,6 +5,9 @@ export interface AuthUser {
   email: string;
   fullName: string;
   avatarUrl: string | null;
+  bio: string | null;
+  phone: string | null;
+  twoFactorEnabled: boolean;
   roles: string[];
   status: string;
 }
@@ -54,8 +57,20 @@ export const authApi = {
   updateProfile: (data: { fullName?: string; bio?: string; phone?: string; avatarUrl?: string }) =>
     apiClient.patch<{ data: AuthUser }>('/users/me', data),
 
-  getSessions: () => apiClient.get('/users/me/sessions'),
+  getSessions: () => apiClient.get<{ data: Array<{ id: string; ipAddress: string; userAgent: string; deviceType: string | null; deviceName: string | null; lastActiveAt: string; createdAt: string; isCurrent: boolean }> }>('/users/me/sessions'),
 
   revokeSession: (sessionId: string) =>
     apiClient.delete(`/users/me/sessions/${sessionId}`),
+
+  generate2fa: () =>
+    apiClient.post<{ data: { secret: string; provisioningUri: string } }>('/auth/2fa/generate'),
+
+  enable2fa: (code: string) =>
+    apiClient.post('/auth/2fa/enable', { code }),
+
+  disable2fa: (code: string) =>
+    apiClient.post('/auth/2fa/disable', { code }),
+
+  verify2fa: (data: { twoFactorToken: string; code: string }) =>
+    apiClient.post<{ data: AuthResponse }>('/auth/2fa/verify', data),
 };
