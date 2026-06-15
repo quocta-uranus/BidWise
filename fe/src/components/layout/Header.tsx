@@ -2,6 +2,8 @@
 
 import { Search, Bell, Mail } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/auth.store';
+import RoleSwitcher from '@/components/ui/RoleSwitcher';
+import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
 
 function getInitials(name: string) {
   return name
@@ -31,6 +33,13 @@ export default function Header() {
 
       {/* Right Icons & Profile */}
       <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <RoleSwitcher />
+          <LanguageSwitcher />
+        </div>
+
+        <div className="h-8 w-px bg-slate-200"></div>
+
         <div className="flex items-center gap-4">
           <button className="relative p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
             <Bell className="w-5 h-5" />
