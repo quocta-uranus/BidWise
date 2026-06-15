@@ -1,21 +1,39 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api/auth.api';
 
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterContent />
+    </Suspense>
+  );
+}
+
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get('role');
+  const initialRole = roleParam === 'FREELANCER' ? 'FREELANCER' : 'CLIENT';
+
   const [form, setForm] = useState({
     email: '',
     password: '',
     fullName: '',
-    role: 'CLIENT' as 'CLIENT' | 'FREELANCER',
+    role: initialRole as 'CLIENT' | 'FREELANCER',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (roleParam === 'FREELANCER' || roleParam === 'CLIENT') {
+      setForm((f) => ({ ...f, role: roleParam }));
+    }
+  }, [roleParam]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
