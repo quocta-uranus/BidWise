@@ -7,6 +7,7 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import { getJobTitle } from '@/lib/i18n/demo-content';
 import { jobsApi } from '@/lib/api/jobs.api';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import CreateJobModal from './CreateJobModal';
 import { toast } from 'sonner';
 
 export default function ClientJobsTab() {
@@ -18,6 +19,7 @@ export default function ClientJobsTab() {
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   
   const [confirmModal, setConfirmModal] = useState<{
@@ -161,7 +163,7 @@ export default function ClientJobsTab() {
               </span>
             </h3>
             <button
-              onClick={() => router.push('/client/jobs/create')}
+              onClick={() => setShowCreateModal(true)}
               className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-extrabold transition-colors shadow-sm shadow-blue-600/30 flex items-center gap-1"
             >
               + {language === 'vi' ? 'Đăng mới' : 'Post Job'}
@@ -246,7 +248,7 @@ export default function ClientJobsTab() {
           {jobs.length > 0 && (
             <div className="px-4 pb-4 pt-1">
               <button
-                onClick={() => router.push('/client/jobs/create')}
+                onClick={() => setShowCreateModal(true)}
                 className="w-full h-9 rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 text-blue-500 hover:text-blue-700 text-xs font-extrabold transition-all"
               >
                 + {t('jobs.postJobBtn')}
@@ -436,7 +438,7 @@ export default function ClientJobsTab() {
                 </p>
               </div>
               <button
-                onClick={() => router.push('/client/jobs/create')}
+                onClick={() => setShowCreateModal(true)}
                 className="h-10 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm transition-colors"
               >
                 + {t('jobs.postJobBtn')}
@@ -531,6 +533,17 @@ export default function ClientJobsTab() {
         type={confirmModal.type}
         confirmText={confirmModal.confirmText}
       />
+
+      {showCreateModal && (
+        <CreateJobModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setSuccessMsg(t('jobs.publishJobSuccess'));
+            setTimeout(() => setSuccessMsg(''), 4500);
+            fetchJobs();
+          }}
+        />
+      )}
     </div>
   );
 }

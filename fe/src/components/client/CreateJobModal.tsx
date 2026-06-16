@@ -1,24 +1,19 @@
 'use client';
 
-import { useState, useRef, KeyboardEvent } from 'react';
-import { useFreelancer } from '@/lib/hooks/useFreelancer';
+import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import type { Job } from '@/lib/hooks/useFreelancer';
+import { jobsApi } from '@/lib/api/jobs.api';
+import { toast } from 'sonner';
 
 interface Props {
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-const CATEGORIES: { value: Job['category']; label: { vi: string; en: string } }[] = [
-  { value: 'frontend',  label: { vi: 'Frontend / Giao diện',        en: 'Frontend / UI' } },
-  { value: 'backend',   label: { vi: 'Backend / Máy chủ',           en: 'Backend / Server' } },
-  { value: 'fullstack', label: { vi: 'Fullstack (Frontend + Backend)', en: 'Fullstack (Frontend + Backend)' } },
-  { value: 'mobile',    label: { vi: 'Mobile (iOS / Android)',       en: 'Mobile (iOS / Android)' } },
-];
 
-const AUCTION_TYPES: { value: Job['auctionType']; label: { vi: string; en: string }; desc: { vi: string; en: string } }[] = [
+
+const AUCTION_TYPES: { value: string; label: { vi: string; en: string }; desc: { vi: string; en: string } }[] = [
   {
     value: 'OPEN',
     label: { vi: 'Đấu thầu công khai (Open Bid)', en: 'Open Bid' },
@@ -32,17 +27,17 @@ const AUCTION_TYPES: { value: Job['auctionType']; label: { vi: string; en: strin
 ];
 
 export default function CreateJobModal({ onClose, onSuccess }: Props) {
-  const { createJob } = useFreelancer();
   const { user } = useAuthStore();
   const { t, language } = useTranslation();
 
   // Form fields
+  const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<Job['category']>('frontend');
+  const [categoryId, setCategoryId] = useState('');
   const [budget, setBudget] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [auctionType, setAuctionType] = useState<Job['auctionType']>('OPEN');
+  const [auctionType, setAuctionType] = useState('OPEN_BID');
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [clientName, setClientName] = useState(user?.fullName ?? '');
@@ -51,6 +46,17 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const skillInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    jobsApi.getCategories().then((data) => {
+      setCategories(data);
+      if (data.length > 0) {
+        setCategoryId(data[0].id);
+      }
+    }).catch(() => {
+      toast.error("Failed to load categories");
+    });
+  }, []);
 
   // Skill tag helpers
   const addSkill = (raw: string) => {
@@ -88,27 +94,41 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
     if (!validate()) return;
 
     setSubmitting(true);
-    // Simulate a slight delay for realism
-    await new Promise((r) => setTimeout(r, 600));
 
-    createJob({
-      title: title.trim(),
-      description: description.trim(),
-      category,
-      skills,
-      budget: Number(budget),
-      deadline,
-      auctionType,
-      clientName: clientName.trim(),
-    });
+    try {
+      const defaultAhpWeight = {
+        priceWeight: 40,
+        skillWeight: 20,
+        experienceWeight: 10,
+        ratingWeight: 10,
+        speedWeight: 10,
+        deadlineWeight: 5,
+        portfolioWeight: 5,
+      };
 
-    setSubmitting(false);
-    setSuccess(true);
+      await jobsApi.create({
+        title: title.trim(),
+        description: description.trim(),
+        categoryId,
+        budgetFormat: 'FIXED',
+        fixedBudget: Number(budget),
+        deadline: new Date(deadline).toISOString(),
+        auctionType: auctionType as any,
+        skills,
+        ahpWeight: defaultAhpWeight,
+      });
 
-    setTimeout(() => {
-      onClose();
-      onSuccess?.();
-    }, 1800);
+      setSuccess(true);
+      setTimeout(() => {
+        onClose();
+        onSuccess?.();
+      }, 1500);
+    } catch (error: any) {
+      const msg = error.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg[0] : (msg || 'Failed to post job'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Today's date as ISO string for min deadline
@@ -192,13 +212,13 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                     {t('jobs.jobCategoryLabel')} <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as Job['category'])}
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white transition-all"
                   >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label[language as 'vi' | 'en']}
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
@@ -252,10 +272,10 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                       <button
                         key={at.value}
                         type="button"
-                        onClick={() => setAuctionType(at.value)}
+                        onClick={() => setAuctionType(at.value === 'OPEN' ? 'OPEN_BID' : 'SEALED_BID')}
                         title={at.desc[language as 'vi' | 'en']}
                         className={`flex-1 h-full rounded-xl border text-[10px] font-extrabold transition-all ${
-                          auctionType === at.value
+                          (auctionType === 'OPEN_BID' && at.value === 'OPEN') || (auctionType === 'SEALED_BID' && at.value === 'SEALED')
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
                             : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'
                         }`}
@@ -265,7 +285,7 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                     ))}
                   </div>
                   <p className="text-[10px] text-slate-400 font-medium leading-snug">
-                    {AUCTION_TYPES.find((a) => a.value === auctionType)?.desc[language as 'vi' | 'en']}
+                    {AUCTION_TYPES.find((a) => (a.value === 'OPEN' && auctionType === 'OPEN_BID') || (a.value === 'SEALED' && auctionType === 'SEALED_BID'))?.desc[language as 'vi' | 'en']}
                   </p>
                 </div>
               </div>
