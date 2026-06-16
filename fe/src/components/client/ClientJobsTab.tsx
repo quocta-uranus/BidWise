@@ -10,6 +10,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import CreateJobModal from './CreateJobModal';
 import EditJobModal from './EditJobModal';
 import { toast } from 'sonner';
+import { Edit2, Trash2, Plus } from 'lucide-react';
 
 export default function ClientJobsTab() {
   const { bids, simulateClientAcceptBid } = useFreelancer();
@@ -172,7 +173,8 @@ export default function ClientJobsTab() {
               onClick={() => setShowCreateModal(true)}
               className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-extrabold transition-colors shadow-sm shadow-blue-600/30 flex items-center gap-1"
             >
-              + {language === 'vi' ? 'Đăng mới' : 'Post Job'}
+              <Plus className="w-3.5 h-3.5" />
+              {language === 'vi' ? 'Đăng mới' : 'Post Job'}
             </button>
           </div>
 
@@ -259,17 +261,17 @@ export default function ClientJobsTab() {
                         </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditingJobId(job.id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600 font-black text-xs"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50"
                           title="Edit"
                         >
-                          ✏️
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 font-black text-xs"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"
                           title={t('jobs.deleteJobBtn')}
                         >
-                          🗑
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { jobsApi } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { X, ChevronRight, ChevronLeft, Edit2, Lock, Save, Loader2, Check } from 'lucide-react';
 
 interface Props {
   jobId: string;
@@ -49,9 +50,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
     const fetchJob = async () => {
       try {
         const job = await jobsApi.findOne(jobId);
-        const bidsCount = job._count?.bids || 0;
-        setHasBids(bidsCount > 0);
-
+        setHasBids((job._count?.bids || 0) > 0);
         setFormData({
           title: job.title || '',
           description: job.description || '',
@@ -63,7 +62,6 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
           auctionType: job.auctionType || 'SEALED_BID',
           skills: job.skills?.map((s: any) => s.name).join(', ') || '',
         });
-
         if (job.ahpWeight) {
           const { id, jobId: _jid, createdAt, updatedAt, ...w } = job.ahpWeight;
           setWeights(w as any);
@@ -134,20 +132,23 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-gradient-to-r from-slate-700 to-slate-900 rounded-t-2xl">
           <div>
-            <h2 className="font-extrabold text-xl text-white leading-snug">
-              ✏️ {language === 'vi' ? 'Chỉnh sửa dự án' : 'Edit Job'}
+            <h2 className="font-extrabold text-xl text-white leading-snug flex items-center gap-2">
+              <Edit2 className="w-5 h-5" />
+              {language === 'vi' ? 'Chỉnh sửa dự án' : 'Edit Job'}
             </h2>
             {hasBids && (
-              <p className="text-amber-300 text-xs mt-0.5 font-semibold">
-                🔒 {language === 'vi' ? 'Dự án đã có thầu — một số trường bị khóa' : 'Job has bids — some fields are locked'}
+              <p className="text-amber-300 text-xs mt-0.5 font-semibold flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                {language === 'vi' ? 'Dự án đã có thầu — một số trường bị khóa' : 'Job has bids — some fields are locked'}
               </p>
             )}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="mt-0.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center font-bold text-sm transition-colors"
+            className="mt-0.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -165,7 +166,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                     : 'bg-slate-200 text-slate-400'
                   }`}
                 >
-                  {currentStep > step.num ? '✓' : step.num}
+                  {currentStep > step.num ? <Check className="w-3.5 h-3.5" /> : step.num}
                 </button>
                 <span className={`text-[11px] font-bold ${currentStep === step.num ? 'text-slate-800' : currentStep > step.num ? 'text-emerald-600' : 'text-slate-400'}`}>
                   {step.label}
@@ -181,16 +182,17 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
         {fetching ? (
           <div className="flex-1 flex items-center justify-center py-16">
             <div className="flex flex-col items-center gap-3">
-              <svg className="w-8 h-8 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
               <p className="text-xs text-slate-400">{language === 'vi' ? 'Đang tải dữ liệu...' : 'Loading...'}</p>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-            <div className="px-6 py-5 space-y-5">
+          <form
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+            className="flex-1 overflow-y-auto flex flex-col"
+          >
+            <div className="px-6 py-5 space-y-5 flex-1">
 
               {/* ── STEP 1: Basic Info ── */}
               {currentStep === 1 && (
@@ -225,7 +227,10 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                       className="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed"
                     />
                     {hasBids && (
-                      <p className="text-[10px] text-amber-600 font-semibold">🔒 {language === 'vi' ? 'Không thể chỉnh sửa khi đã có thầu' : 'Cannot edit after bids received'}</p>
+                      <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        {language === 'vi' ? 'Không thể chỉnh sửa khi đã có thầu' : 'Cannot edit after bids received'}
+                      </p>
                     )}
                   </div>
 
@@ -245,7 +250,11 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                               : 'border-slate-200 text-slate-500 hover:border-blue-300'
                           }`}
                         >
-                          {at === 'SEALED_BID' ? '🔒 Sealed Bid' : '🔓 Open Bid'}
+                          {at === 'SEALED_BID' ? (
+                            <span className="flex items-center justify-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Sealed Bid</span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-1.5">🔓 Open Bid</span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -272,7 +281,9 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                               : 'border-slate-200 text-slate-500 hover:border-blue-300'
                           }`}
                         >
-                          {fmt === 'FIXED' ? (language === 'vi' ? '💰 Giá cố định' : '💰 Fixed Price') : (language === 'vi' ? '📊 Khoảng giá' : '📊 Price Range')}
+                          {fmt === 'FIXED'
+                            ? (language === 'vi' ? '💰 Giá cố định' : '💰 Fixed Price')
+                            : (language === 'vi' ? '📊 Khoảng giá' : '📊 Price Range')}
                         </button>
                       ))}
                     </div>
@@ -317,7 +328,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                       {language === 'vi' ? 'Hạn chót' : 'Deadline'}
                     </label>
                     <input
-                      disabled={hasBids} required type="datetime-local" name="deadline" value={formData.deadline} onChange={handleChange}
+                      disabled={hasBids} type="datetime-local" name="deadline" value={formData.deadline} onChange={handleChange}
                       min={new Date().toISOString().slice(0, 16)}
                       className="w-full h-10 px-3.5 rounded-xl border border-slate-200 text-sm font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-50 disabled:bg-slate-50"
                     />
@@ -330,12 +341,12 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                 <>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-extrabold text-sm text-slate-800">
+                      <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
                         ⚖️ {language === 'vi' ? 'Trọng số đánh giá AHP' : 'AHP Evaluation Weights'}
                       </h3>
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         {hasBids
-                          ? (language === 'vi' ? '🔒 Bị khóa vì đã có thầu' : '🔒 Locked because bids exist')
+                          ? (language === 'vi' ? 'Bị khóa vì đã có thầu' : 'Locked because bids exist')
                           : (language === 'vi' ? 'Tổng phải bằng 100%' : 'Must total exactly 100%')}
                       </p>
                     </div>
@@ -363,6 +374,17 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                       </div>
                     ))}
                   </div>
+
+                  {!hasBids && !isWeightValid && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700 font-semibold flex items-center gap-2">
+                      <span>⚠️</span>
+                      <span>
+                        {language === 'vi'
+                          ? `Tổng hiện tại: ${totalWeight}%. Cần ${totalWeight > 100 ? 'giảm' : 'tăng'} ${Math.abs(100 - totalWeight)}% nữa.`
+                          : `Current total: ${totalWeight}%. ${totalWeight > 100 ? 'Reduce' : 'Add'} ${Math.abs(100 - totalWeight)}% more.`}
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -372,8 +394,9 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
               <div className="flex gap-2">
                 {currentStep > 1 && (
                   <button type="button" onClick={() => setCurrentStep((s) => s - 1)}
-                    className="h-10 px-4 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors">
-                    ← {language === 'vi' ? 'Quay lại' : 'Back'}
+                    className="h-10 px-4 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                    <ChevronLeft className="w-4 h-4" />
+                    {language === 'vi' ? 'Quay lại' : 'Back'}
                   </button>
                 )}
                 <button type="button" onClick={onClose}
@@ -384,22 +407,17 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
 
               {currentStep < 3 ? (
                 <button type="button" onClick={() => setCurrentStep((s) => s + 1)}
-                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 text-white font-bold text-sm shadow-sm transition-all flex items-center gap-2">
-                  {language === 'vi' ? 'Tiếp theo' : 'Next'} →
+                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 text-white font-bold text-sm shadow-sm transition-all flex items-center gap-1.5">
+                  {language === 'vi' ? 'Tiếp theo' : 'Next'}
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               ) : (
                 <button type="submit" disabled={loading || (!hasBids && !isWeightValid)}
-                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 text-white font-bold text-sm shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
+                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-slate-950 text-white font-bold text-sm shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5">
                   {loading ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      {language === 'vi' ? 'Đang lưu...' : 'Saving...'}
-                    </>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> {language === 'vi' ? 'Đang lưu...' : 'Saving...'}</>
                   ) : (
-                    <>💾 {language === 'vi' ? 'Lưu thay đổi' : 'Save Changes'}</>
+                    <><Save className="w-4 h-4" /> {language === 'vi' ? 'Lưu thay đổi' : 'Save Changes'}</>
                   )}
                 </button>
               )}
