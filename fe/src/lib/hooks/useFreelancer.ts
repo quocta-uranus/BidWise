@@ -64,6 +64,12 @@ export interface Bid {
   status: 'PENDING' | 'SHORTLISTED' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
   matchingScore: number;
   submittedAt: string;
+  matchBreakdown?: {
+    skillMatch: number;
+    budgetMatch: number;
+    experienceMatch: number;
+  };
+  canEdit?: boolean;
 }
 
 export interface Milestone {
@@ -122,8 +128,14 @@ interface FreelancerStore {
   bidTokensUsed: number;     // tokens used today
   lastBidDate: string;       // ISO date of last bid
   bidPenalties: number;      // cumulative cancel count
+  withdrawPenalties: number; // cancel count affecting quota
+
+  // API sync actions
+  setBidsFromApi: (bids: Bid[]) => void;
+  setBidQuota: (quota: { bidTokens: number; bidTokensUsed: number; bidPenalties: number }) => void;
 
   // Actions
+  setProfileFromApi: (profile: Partial<FreelancerProfile>) => void;
   updateProfile: (fields: Partial<FreelancerProfile>) => void;
   addSkill: (skill: string) => void;
   removeSkill: (skill: string) => void;
@@ -444,6 +456,19 @@ export const useFreelancer = create<FreelancerStore>()(
       bidTokensUsed: 0,
       lastBidDate: '',
       bidPenalties: 0,
+      withdrawPenalties: 0,
+
+      setBidsFromApi: (bids) => set({ bids }),
+      setBidQuota: (quota) => set({
+        bidTokens: quota.bidTokens,
+        bidTokensUsed: quota.bidTokensUsed,
+        bidPenalties: quota.bidPenalties
+      }),
+
+      setProfileFromApi: (fields) =>
+        set((state) => ({
+          profile: { ...state.profile, ...fields }
+        })),
 
       updateProfile: (fields) =>
         set((state) => ({

@@ -53,10 +53,20 @@ export default function DashboardPage() {
 
   // Fetch real client jobs for overview stats
   useEffect(() => {
-    if (activeRole === 'CLIENT') {
-      jobsApi.findMyJobs().then(setClientJobs).catch(() => {});
+    if (activeRole === 'CLIENT' && isAuthenticated) {
+      jobsApi.findMyJobs()
+        .then(jobs => setClientJobs(jobs)) // Backend returns array directly
+        .catch((err) => {
+          console.log('=== CLIENT JOBS ERROR ===');
+          console.log('Status:', err?.response?.status);
+          console.log('Data:', JSON.stringify(err?.response?.data));
+          console.log('Message:', err?.message);
+          console.log('Stack:', err?.stack);
+          console.log('========================');
+        });
     }
-  }, [activeRole]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRole, isAuthenticated]);
 
   // Sync tab value when role changes to avoid non-existent tab
   useEffect(() => {
@@ -71,6 +81,11 @@ export default function DashboardPage() {
     }
     if (user?.roles.some((r) => r === 'ADMIN' || r === 'MODERATOR')) {
       router.replace('/admin');
+      return;
+    }
+    // SECURITY: If user doesn't have CLIENT or FREELANCER role, redirect to login
+    if (!user?.roles.some((r) => r === 'CLIENT' || r === 'FREELANCER')) {
+      router.replace('/login');
     }
   }, [isLoading, isAuthenticated, user, router]);
 

@@ -21,6 +21,7 @@ import { SessionModule } from './modules/session/session.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { FreelancerModule } from './modules/freelancer/freelancer.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { JobsModule } from './modules/jobs/jobs.module';
     UsersModule,
     AdminModule,
     JobsModule,
+    FreelancerModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

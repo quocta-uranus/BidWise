@@ -1,20 +1,52 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useFreelancer, PortfolioItem, Certificate } from '@/lib/hooks/useFreelancer';
+import { useEffect, useState, useMemo } from 'react';
+import { useFreelancerProfile } from '@/lib/hooks/useFreelancerProfile';
+import { useFreelancer } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { getQuizQuestions, localizeAssessmentLevel } from '@/lib/i18n/demo-content';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function ProfileTab() {
-  const { profile, updateProfile, addSkill, removeSkill, addPortfolio, removePortfolio, uploadCv, addCertificate } = useFreelancer();
+  const {
+    profile,
+    loading,
+    saving,
+    error,
+    loadProfile,
+    updateProfile,
+    addSkill,
+    removeSkill,
+    addPortfolio,
+    removePortfolio,
+    uploadCv,
+    deleteCv,
+    addCertificate,
+    deleteCertificate,
+  } = useFreelancerProfile();
+
+  const queryClient = useQueryClient();
   const { t, language } = useTranslation();
+
+  // Load profile on mount
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   // State for forms
   const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState(profile.bio);
-  const [hourlyRate, setHourlyRate] = useState(profile.hourlyRate);
-  const [phone, setPhone] = useState(profile.phone);
-  const [experience, setExperience] = useState(profile.experience ?? '');
+  const [bio, setBio] = useState('');
+  const [hourlyRate, setHourlyRate] = useState(0);
+  const [phone, setPhone] = useState('');
+  const [experience, setExperience] = useState('');
+
+  // Sync form state with profile
+  useEffect(() => {
+    setBio(profile.bio || '');
+    setHourlyRate(profile.hourlyRate || 0);
+    setPhone(profile.phone || '');
+    setExperience(profile.experience || '');
+  }, [profile]);
 
   // Skill editor state
   const [newSkill, setNewSkill] = useState('');
@@ -51,17 +83,27 @@ export default function ProfileTab() {
   if (profile.certificates.length > 0) completeness += 10;
   if (profile.assessmentCompleted) completeness += 15;
 
-  const handleSaveInfo = (e: React.FormEvent) => {
+  const handleSaveInfo = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({ bio, hourlyRate: Number(hourlyRate), phone, experience });
-    setEditing(false);
+    try {
+      await updateProfile({ bio, hourlyRate: Number(hourlyRate), phone, experience });
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+      setEditing(false);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+    }
   };
 
-  const handleAddSkill = () => {
+  const handleAddSkill = async () => {
     const trimmed = newSkill.trim();
     if (!trimmed) return;
-    addSkill(trimmed);
-    setNewSkill('');
+    try {
+      await addSkill(trimmed);
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+      setNewSkill('');
+    } catch (err) {
+      console.error('Failed to add skill:', err);
+    }
   };
 
   const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -71,7 +113,7 @@ export default function ProfileTab() {
     }
   };
 
-  const handleAddPortfolioSubmit = (e: React.FormEvent) => {
+  const handleAddPortfolioSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!portTitle) return;
 
@@ -90,40 +132,59 @@ export default function ProfileTab() {
       }
     }
 
-    addPortfolio({
-      title: portTitle,
-      desc: portDesc,
-      link: portLink,
-      fileName: portFile ? portFile.name : undefined,
-      fileSize: portFile ? `${(portFile.size / (1024 * 1024)).toFixed(2)} MB` : undefined
-    });
+    try {
+      await addPortfolio({
+        title: portTitle,
+        desc: portDesc,
+        link: portLink,
+        fileName: portFile ? portFile.name : undefined,
+        fileSize: portFile ? `${(portFile.size / (1024 * 1024)).toFixed(2)} MB` : undefined
+      }, portFile || undefined);
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
 
-    setPortTitle('');
-    setPortDesc('');
-    setPortLink('');
-    setPortFile(null);
-    setShowPortModal(false);
+      setPortTitle('');
+      setPortDesc('');
+      setPortLink('');
+      setPortFile(null);
+      setShowPortModal(false);
+    } catch (err) {
+      console.error('Failed to add portfolio:', err);
+    }
   };
 
-  const handleAddCertSubmit = (e: React.FormEvent) => {
+  const handleRemovePortfolio = async (id: string) => {
+    try {
+      await removePortfolio(id);
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+    } catch (err) {
+      console.error('Failed to remove portfolio:', err);
+    }
+  };
+
+  const handleAddCertSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!certName || !certIssuer) return;
 
-    addCertificate({
-      name: certName,
-      issuer: certIssuer,
-      date: certDate,
-      verifyLink: certLink
-    });
+    try {
+      await addCertificate({
+        name: certName,
+        issuer: certIssuer,
+        date: certDate,
+        verifyLink: certLink
+      });
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
 
-    setCertName('');
-    setCertIssuer('');
-    setCertDate('');
-    setCertLink('');
-    setShowCertModal(false);
+      setCertName('');
+      setCertIssuer('');
+      setCertDate('');
+      setCertLink('');
+      setShowCertModal(false);
+    } catch (err) {
+      console.error('Failed to add certificate:', err);
+    }
   };
 
-  const handleCvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCvChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -132,12 +193,24 @@ export default function ProfileTab() {
       return;
     }
 
-    uploadCv({
-      fileName: file.name,
-      fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-      uploadedAt: new Date().toISOString().split('T')[0]
-    });
+    try {
+      await uploadCv(file);
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+    } catch (err) {
+      console.error('Failed to upload CV:', err);
+    }
   };
+
+  const handleDeleteCv = async () => {
+    try {
+      await deleteCv();
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+    } catch (err) {
+      console.error('Failed to delete CV:', err);
+    }
+  };
+
+  const completeAssessment = useFreelancer((s) => s.completeAssessment);
 
   const handleQuizAnswer = (optionIdx: number) => {
     const newAnswers = [...answers, optionIdx];
@@ -152,7 +225,6 @@ export default function ProfileTab() {
         if (newAnswers[idx] === q.correct) score++;
       });
 
-      const { completeAssessment } = useFreelancer.getState();
       completeAssessment(score);
       setQuizFinished(true);
     }
@@ -164,6 +236,40 @@ export default function ProfileTab() {
     setQuizFinished(false);
     setQuizOpen(false);
   };
+
+  const handleRemoveSkill = async (skill: string) => {
+    try {
+      await removeSkill(skill);
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+    } catch (err) {
+      console.error('Failed to remove skill:', err);
+    }
+  };
+
+  const handleDeleteCertificate = async (id: string) => {
+    try {
+      await deleteCertificate(id);
+      await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
+    } catch (err) {
+      console.error('Failed to delete certificate:', err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12 text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -326,7 +432,7 @@ export default function ProfileTab() {
                       >
                         {skill}
                         <button
-                          onClick={() => removeSkill(skill)}
+                          onClick={() => handleRemoveSkill(skill)}
                           className="ml-0.5 text-blue-400 hover:text-red-500 transition-colors leading-none"
                           title={t('profile.removeSkill')}
                         >
@@ -379,7 +485,7 @@ export default function ProfileTab() {
                 {profile.portfolio.map((proj) => (
                   <div key={proj.id} className="border border-slate-100 bg-slate-50/50 rounded-xl p-4 flex flex-col justify-between relative group">
                     <button
-                      onClick={() => removePortfolio(proj.id)}
+                      onClick={() => handleRemovePortfolio(proj.id)}
                       className="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Xóa dự án"
                     >
@@ -460,7 +566,7 @@ export default function ProfileTab() {
                   </div>
                 </div>
                 <button
-                  onClick={() => uploadCv(null)}
+                  onClick={handleDeleteCv}
                   className="text-xs text-slate-400 hover:text-red-500 font-semibold"
                 >
                   Xóa
