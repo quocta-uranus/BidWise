@@ -21,6 +21,7 @@ export default function ClientJobsTab() {
   const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [filterTab, setFilterTab] = useState('ALL');
   
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -61,6 +62,9 @@ export default function ClientJobsTab() {
   // Get bids for a specific job
   const getBidsForJob = (jobId: string) =>
     bids.filter((b) => b.jobId === jobId && b.status !== 'WITHDRAWN');
+
+  const STATUS_TABS = ['ALL', 'DRAFT', 'OPEN', 'CLOSED', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED'];
+  const filteredJobs = filterTab === 'ALL' ? jobs : jobs.filter((j) => j.status === filterTab);
 
   const handleAcceptBid = (bidId: string) => {
     simulateClientAcceptBid(bidId);
@@ -170,21 +174,43 @@ export default function ClientJobsTab() {
             </button>
           </div>
 
+          {/* Status Filter Tabs */}
+          <div className="px-4 pt-2 pb-0 flex gap-1 overflow-x-auto scrollbar-hide">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilterTab(tab)}
+                className={`shrink-0 px-2.5 py-1 text-[10px] font-bold rounded-lg transition-colors ${
+                  filterTab === tab
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {tab.replace('_', ' ')}
+                {tab === 'ALL' ? (
+                  <span className="ml-1 text-[9px] opacity-70">{jobs.length}</span>
+                ) : (
+                  <span className="ml-1 text-[9px] opacity-70">{jobs.filter(j => j.status === tab).length}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
           {/* List */}
-          <div className="px-4 py-3 space-y-2 max-h-[600px] overflow-y-auto">
+          <div className="px-4 py-3 space-y-2 max-h-[560px] overflow-y-auto">
             {loading ? (
               <div className="py-10 text-center text-xs text-slate-400">Loading jobs...</div>
-            ) : jobs.length === 0 ? (
+            ) : filteredJobs.length === 0 ? (
               <div className="py-10 text-center text-xs text-slate-400 leading-relaxed">
                 <p className="text-2xl mb-2">📭</p>
-                {language === 'vi'
-                  ? 'Bạn chưa đăng dự án nào. Nhấn "+ Đăng mới" để bắt đầu!'
-                  : 'No jobs posted yet. Click "+ Post Job" to get started!'}
+                {filterTab !== 'ALL'
+                  ? `No ${filterTab} jobs.`
+                  : language === 'vi'
+                    ? 'Bạn chưa đăng dự án nào. Nhấn "+ Đăng mới" để bắt đầu!'
+                    : 'No jobs posted yet. Click "+ Post Job" to get started!'}
               </div>
             ) : (
-              jobs.map((job) => {
-                const jobBids    = getBidsForJob(job.id);
-                const isAccepted = jobBids.some((b) => b.status === 'ACCEPTED');
+              filteredJobs.map((job) => {
                 const isSelected = selectedJob?.id === job.id;
 
                 return (
@@ -229,6 +255,14 @@ export default function ClientJobsTab() {
                         <span className="font-bold text-blue-600">
                           {job._count?.bids || 0} {language === 'vi' ? 'đề xuất' : 'bids'}
                         </span>
+                        <a
+                          href={`/client/jobs/${job.id}/edit`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600 font-black text-xs"
+                          title="Edit"
+                        >
+                          ✏️
+                        </a>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 font-black text-xs"
