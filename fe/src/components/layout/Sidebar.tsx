@@ -16,9 +16,24 @@ import {
   Briefcase
 } from 'lucide-react';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const { user, logout, isLoading } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isLoading && !user) {
+      router.push('/login');
+    }
+  }, [mounted, isLoading, user, router]);
 
   const isAdmin = user?.roles.includes('ADMIN');
   const isFreelancer = user?.roles.includes('FREELANCER');
@@ -46,16 +61,29 @@ export default function Sidebar() {
     roleSubtitle = 'Client Portal';
     navItems = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Post a Job', href: '/post-job', icon: Plus },
-      { label: 'My Projects', href: '/my-projects', icon: FolderOpen },
+      { label: 'My Projects', href: '/client/jobs', icon: FolderOpen },
       { label: 'Freelancers', href: '/freelancers', icon: Briefcase },
     ];
-    actionButton = { label: 'Post Job', icon: Plus };
   } else {
     roleSubtitle = 'Welcome';
     navItems = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     ];
+  }
+
+  if (!mounted || isLoading) {
+    return (
+      <aside className="w-64 bg-[#1e3251] text-white flex flex-col min-h-screen">
+        <div className="p-6">
+          <h2 className="text-2xl font-bold tracking-tight">BidWise</h2>
+          <p className="text-sm text-blue-200 mt-1 opacity-80">Loading...</p>
+        </div>
+      </aside>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect via useEffect
   }
 
   return (
@@ -93,10 +121,13 @@ export default function Sidebar() {
         {actionButton && (() => {
           const ActionIcon = actionButton.icon;
           return (
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors">
+            <Link
+              href={(actionButton as any).href || '#'}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
+            >
               <ActionIcon className="w-4 h-4" />
               {actionButton.label}
-            </button>
+            </Link>
           );
         })()}
 

@@ -142,24 +142,35 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Coming soon */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
-          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">Module sắp ra mắt</h3>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto">
-            Các tính năng Job, Bidding và AHP-TOPSIS Matching đang được phát triển.
-          </p>
-          <div className="flex items-center justify-center gap-6 mt-6">
-            {['Jobs', 'Bidding', 'Contracts', 'Payments'].map((m) => (
-              <div key={m} className="flex items-center gap-1.5 text-xs text-slate-400">
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                {m}
-              </div>
-            ))}
+        {/* Quick Actions / Content */}
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-blue-900/5 p-10 overflow-hidden relative">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-lg shadow-blue-500/25 transform rotate-3">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">Welcome to your Workspace</h3>
+              <p className="text-slate-500 text-base max-w-lg mx-auto md:mx-0 mb-6">
+                Manage your projects, find the best freelancers, and grow your business with our AI-powered bidding system.
+              </p>
+              
+              {user.roles.includes('CLIENT') && (
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                  <Link href="/client/jobs/create" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Post a New Job
+                  </Link>
+                  <Link href="/client/jobs" className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors">
+                    View My Projects
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>

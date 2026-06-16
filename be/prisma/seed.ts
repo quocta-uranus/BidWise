@@ -1,4 +1,4 @@
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient } from '@prisma/client';
 const RoleType = { ADMIN: 'ADMIN', MODERATOR: 'MODERATOR', CLIENT: 'CLIENT', FREELANCER: 'FREELANCER' } as const;
 type RoleType = (typeof RoleType)[keyof typeof RoleType];
 
@@ -42,6 +42,25 @@ async function main() {
     });
   }
   console.log('Permissions seeded:', permissions.length);
+
+  // Seed Categories
+  const categories = [
+    { name: 'Web Development', description: 'Websites, web apps, and frontend/backend development' },
+    { name: 'Mobile Development', description: 'iOS and Android app development' },
+    { name: 'UI/UX Design', description: 'User interface and user experience design' },
+    { name: 'Digital Marketing', description: 'SEO, social media, and digital marketing' },
+    { name: 'Writing & Translation', description: 'Content writing, copywriting, and translation' },
+    { name: 'Video & Animation', description: 'Video editing, animation, and motion graphics' },
+  ];
+
+  for (const cat of categories) {
+    await prisma.category.upsert({
+      where: { name: cat.name },
+      update: { description: cat.description },
+      create: cat,
+    });
+  }
+  console.log('Categories seeded:', categories.length);
 }
 
 main()
