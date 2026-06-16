@@ -47,13 +47,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // Do not attempt to refresh token on auth routes (except change-password and refresh itself) to avoid loops/deadlocks
+    // Do not attempt to refresh token on auth routes (except change-password) to avoid loops/deadlocks
     const isAuthRoute = original.url?.includes('/auth/')
-      && !original.url?.includes('/auth/change-password')
-      && !original.url?.includes('/auth/refresh');
+      && !original.url?.includes('/auth/change-password');
 
-    if (error.response?.status !== 401 || original._retry || isAuthRoute) {
-
+    if (error.response?.status !== 401 || original._retry || isAuthRoute || original.url?.includes('/auth/refresh')) {
       return Promise.reject(error);
     }
 

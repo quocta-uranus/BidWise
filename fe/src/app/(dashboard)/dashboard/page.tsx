@@ -9,6 +9,8 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import { getJobTitle } from '@/lib/i18n/demo-content';
+import { jobsApi } from '@/lib/api/jobs.api';
+import { Inbox } from 'lucide-react';
 
 // Import subcomponents
 import ProfileTab from '@/components/freelancer/ProfileTab';
@@ -16,9 +18,10 @@ import JobsTab from '@/components/freelancer/JobsTab';
 import BidsTab from '@/components/freelancer/BidsTab';
 import ContractsTab from '@/components/freelancer/ContractsTab';
 import EarningsTab from '@/components/freelancer/EarningsTab';
+import ClientJobsTab from '@/components/client/ClientJobsTab';
+import CreateJobModal from '@/components/client/CreateJobModal';
 
 // Client subcomponents
-import ClientJobsTab from '@/components/client/ClientJobsTab';
 import ExploreFreelancersTab from '@/components/client/ExploreFreelancersTab';
 
 const roleColors: Record<string, string> = {
@@ -45,6 +48,15 @@ export default function DashboardPage() {
 
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [clientJobs, setClientJobs] = useState<any[]>([]);
+
+  // Fetch real client jobs for overview stats
+  useEffect(() => {
+    if (activeRole === 'CLIENT') {
+      jobsApi.findMyJobs().then(setClientJobs).catch(() => {});
+    }
+  }, [activeRole]);
 
   // Sync tab value when role changes to avoid non-existent tab
   useEffect(() => {
@@ -115,9 +127,12 @@ export default function DashboardPage() {
     { label: t('dashboard.statTotalEarnings'), value: `$${wallet.totalEarned}`, icon: '💰' },
   ];
 
+  // Real stats from backend
+  const totalBidsReceived = clientJobs.reduce((sum, j) => sum + (j._count?.bids || 0), 0);
+  const openJobs = clientJobs.filter((j) => j.status === 'OPEN').length;
   const clientStats = [
-    { label: language === 'vi' ? 'Dự án đã đăng' : 'Jobs Posted', value: String(jobs.length), icon: '📋' },
-    { label: language === 'vi' ? 'Số thầu nhận được' : 'Bids Received', value: String(activeBids.length), icon: '🎯' },
+    { label: language === 'vi' ? 'Dự án đã đăng' : 'Jobs Posted', value: String(clientJobs.length), icon: '📋' },
+    { label: language === 'vi' ? 'Số thầu nhận được' : 'Bids Received', value: String(totalBidsReceived), icon: '🎯' },
     { label: language === 'vi' ? 'Hợp đồng đang chạy' : 'Active Contracts', value: String(activeContracts.length), icon: '📄' },
     { label: language === 'vi' ? 'Đang giữ Ký quỹ (Escrow)' : 'Escrow Hold', value: `$${wallet.escrow}`, icon: '🛡️' },
   ];
@@ -448,6 +463,38 @@ export default function DashboardPage() {
             {/* Tab: Overview Panel */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
+                {/* Quick Actions / Content */}
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-blue-900/5 p-10 overflow-hidden relative">
+                  <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-lg shadow-blue-500/25 transform rotate-3">
+                      <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    
+                    <div className="flex-1 text-center md:text-left">
+                      <h3 className="text-2xl font-bold text-slate-900 mb-2">Welcome to your Workspace</h3>
+                      <p className="text-slate-500 text-base max-w-lg mx-auto md:mx-0 mb-6">
+                        Manage your projects, find the best freelancers, and grow your business with our AI-powered bidding system.
+                      </p>
+                      
+                      {user.roles.includes('CLIENT') && (
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                          <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            Post a New Job
+                          </button>
+                          <button onClick={() => setActiveTab('jobs')} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors">
+                            View My Projects
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Dynamic Welcome Heading */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-xs">
                   <div>
@@ -554,27 +601,44 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Client recent activities feed */}
+                    {/* Client recent jobs feed */}
                     {activeRole === 'CLIENT' && (
                       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
                         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                           <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-700">
-                            {language === 'vi' ? 'Hoạt động ký quỹ' : 'Escrow Operations'}
+                            {language === 'vi' ? 'Dự án đã đăng' : 'My Posted Jobs'}
                           </h3>
+                          <button onClick={() => setActiveTab('jobs')} className="text-xs text-blue-600 font-bold hover:underline">
+                            {t('common.viewAll')}
+                          </button>
                         </div>
-                        <div className="divide-y divide-slate-100">
-                          {wallet.transactions.slice(0, 3).map((tx) => (
-                            <div key={tx.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
-                              <div>
-                                <h4 className="font-bold text-slate-800">{tx.description}</h4>
-                                <p className="text-[10px] text-slate-450 mt-0.5">{tx.date} · Type: <span className="font-bold text-slate-600">{tx.type}</span></p>
+                        {clientJobs.length === 0 ? (
+                          <div className="text-center py-6 text-xs text-slate-400 flex flex-col items-center justify-center space-y-2">
+                            <Inbox className="w-8 h-8 text-slate-300" />
+                            <p>{language === 'vi' ? 'Chưa có dự án nào. Đăng ngay!' : 'No jobs posted yet. Post one now!'}</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100">
+                            {clientJobs.slice(0, 4).map((job: any) => (
+                              <div key={job.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-bold text-slate-800 truncate">{job.title}</h4>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">
+                                    {job.category?.name} · {job._count?.bids || 0} {language === 'vi' ? 'đề xuất' : 'bids'}
+                                  </p>
+                                </div>
+                                <span className={`ml-3 shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                  job.status === 'OPEN' ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : job.status === 'DRAFT' ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                  : job.status === 'IN_PROGRESS' ? 'bg-green-50 text-green-700 border-green-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                  {job.status}
+                                </span>
                               </div>
-                              <span className={`text-[10px] font-black ${tx.type === 'EARNED' ? 'text-green-600' : 'text-blue-600'}`}>
-                                {tx.type === 'EARNED' ? '-' : '+'}${tx.amount}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -633,6 +697,14 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Create Job Modal for Dashboard overview */}
+                {showCreateModal && (
+                  <CreateJobModal
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={() => setActiveTab('jobs')}
+                  />
+                )}
               </div>
             )}
 
