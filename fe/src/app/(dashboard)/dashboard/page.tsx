@@ -9,6 +9,7 @@ import { useTranslation } from '@/lib/i18n/useTranslation';
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import { getJobTitle } from '@/lib/i18n/demo-content';
+import { jobsApi } from '@/lib/api/jobs.api';
 
 // Import subcomponents
 import ProfileTab from '@/components/freelancer/ProfileTab';
@@ -47,6 +48,14 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [clientJobs, setClientJobs] = useState<any[]>([]);
+
+  // Fetch real client jobs for overview stats
+  useEffect(() => {
+    if (activeRole === 'CLIENT') {
+      jobsApi.findMyJobs().then(setClientJobs).catch(() => {});
+    }
+  }, [activeRole]);
 
   // Sync tab value when role changes to avoid non-existent tab
   useEffect(() => {
@@ -117,9 +126,12 @@ export default function DashboardPage() {
     { label: t('dashboard.statTotalEarnings'), value: `$${wallet.totalEarned}`, icon: '💰' },
   ];
 
+  // Real stats from backend
+  const totalBidsReceived = clientJobs.reduce((sum, j) => sum + (j._count?.bids || 0), 0);
+  const openJobs = clientJobs.filter((j) => j.status === 'OPEN').length;
   const clientStats = [
-    { label: language === 'vi' ? 'Dự án đã đăng' : 'Jobs Posted', value: String(jobs.length), icon: '📋' },
-    { label: language === 'vi' ? 'Số thầu nhận được' : 'Bids Received', value: String(activeBids.length), icon: '🎯' },
+    { label: language === 'vi' ? 'Dự án đã đăng' : 'Jobs Posted', value: String(clientJobs.length), icon: '📋' },
+    { label: language === 'vi' ? 'Số thầu nhận được' : 'Bids Received', value: String(totalBidsReceived), icon: '🎯' },
     { label: language === 'vi' ? 'Hợp đồng đang chạy' : 'Active Contracts', value: String(activeContracts.length), icon: '📄' },
     { label: language === 'vi' ? 'Đang giữ Ký quỹ (Escrow)' : 'Escrow Hold', value: `$${wallet.escrow}`, icon: '🛡️' },
   ];
@@ -588,27 +600,44 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Client recent activities feed */}
+                    {/* Client recent jobs feed */}
                     {activeRole === 'CLIENT' && (
                       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
                         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                           <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-700">
-                            {language === 'vi' ? 'Hoạt động ký quỹ' : 'Escrow Operations'}
+                            {language === 'vi' ? 'Dự án đã đăng' : 'My Posted Jobs'}
                           </h3>
+                          <button onClick={() => setActiveTab('jobs')} className="text-xs text-blue-600 font-bold hover:underline">
+                            {t('common.viewAll')}
+                          </button>
                         </div>
-                        <div className="divide-y divide-slate-100">
-                          {wallet.transactions.slice(0, 3).map((tx) => (
-                            <div key={tx.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
-                              <div>
-                                <h4 className="font-bold text-slate-800">{tx.description}</h4>
-                                <p className="text-[10px] text-slate-450 mt-0.5">{tx.date} · Type: <span className="font-bold text-slate-600">{tx.type}</span></p>
+                        {clientJobs.length === 0 ? (
+                          <div className="text-center py-4 text-xs text-slate-400">
+                            <p className="text-xl mb-1">📭</p>
+                            <p>{language === 'vi' ? 'Chưa có dự án nào. Đăng ngay!' : 'No jobs posted yet. Post one now!'}</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100">
+                            {clientJobs.slice(0, 4).map((job: any) => (
+                              <div key={job.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-bold text-slate-800 truncate">{job.title}</h4>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">
+                                    {job.category?.name} · {job._count?.bids || 0} {language === 'vi' ? 'đề xuất' : 'bids'}
+                                  </p>
+                                </div>
+                                <span className={`ml-3 shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                  job.status === 'OPEN' ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : job.status === 'DRAFT' ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                  : job.status === 'IN_PROGRESS' ? 'bg-green-50 text-green-700 border-green-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                  {job.status}
+                                </span>
                               </div>
-                              <span className={`text-[10px] font-black ${tx.type === 'EARNED' ? 'text-green-600' : 'text-blue-600'}`}>
-                                {tx.type === 'EARNED' ? '-' : '+'}${tx.amount}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
