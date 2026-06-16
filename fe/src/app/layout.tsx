@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/auth/AuthProvider";
+import LanguageSync from "@/components/ui/LanguageSync";
 import { Providers } from "@/lib/providers";
 import { Toaster } from "sonner";
 
@@ -27,7 +28,10 @@ export default function RootLayout({
     <html lang="vi" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-[#f8fafc]">
         <Providers>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <LanguageSync />
+            {children}
+          </AuthProvider>
         </Providers>
         <Toaster position="top-right" richColors />
       </body>
