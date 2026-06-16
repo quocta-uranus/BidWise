@@ -92,7 +92,7 @@ export interface Contract {
 
 export interface Transaction {
   id: string;
-  type: 'EARNED' | 'WITHDRAW' | 'ESCROW';
+  type: 'EARNED' | 'WITHDRAW' | 'ESCROW' | 'DEPOSIT' | 'REFUND';
   amount: number;
   description: string;
   descKey?: TransactionDescKey;
@@ -154,9 +154,11 @@ interface FreelancerStore {
 
   // Wallet Actions
   requestWithdrawal: (amount: number, method: string, details: string) => { success: boolean; error?: string };
+  depositFunds: (amount: number, gateway: string) => { success: boolean };
+  requestRefund: (contractId: string) => { success: boolean; error?: string };
 
   // Demo helper
-  simulateClientAcceptBid: (bidId: string) => void;
+  simulateClientAcceptBid: (bidId: string) => { success: boolean; error?: string };
 }
 
 const initialJobs: Job[] = [
@@ -785,9 +787,112 @@ export const useFreelancer = create<FreelancerStore>()(
         return { success: true };
       },
 
+      depositFunds: (amount, gateway) => {
+        const wallet = get().wallet;
+        const newTransaction: Transaction = {
+          id: `tx-dep-${Date.now()}`,
+          type: 'DEPOSIT',
+          amount,
+          description: `Nạp tiền vào ví qua ${gateway}`,
+          descKey: 'deposit' as any,
+          descParams: { gateway },
+          date: new Date().toISOString().split('T')[0],
+          status: 'PENDING'
+        };
+
+        set({
+          wallet: {
+            ...wallet,
+            transactions: [newTransaction, ...wallet.transactions]
+          }
+        });
+
+        // Simulate async callback (mock webhook after 3 seconds)
+        setTimeout(() => {
+          set((state) => {
+            const txs = state.wallet.transactions.map((t) =>
+              t.id === newTransaction.id ? { ...t, status: 'SUCCESS' as const } : t
+            );
+            const newBalance = state.wallet.balance + amount;
+            return {
+              wallet: {
+                ...state.wallet,
+                balance: newBalance,
+                transactions: txs
+              }
+            };
+          });
+        }, 3000);
+
+        return { success: true };
+      },
+
+      requestRefund: (contractId) => {
+        const contract = get().contracts.find((c) => c.id === contractId);
+        if (!contract) return { success: false, error: 'Không tìm thấy hợp đồng.' };
+        if (contract.status === 'COMPLETED') return { success: false, error: 'Hợp đồng đã hoàn thành, không thể hoàn tiền.' };
+
+        // Calculate unreleased amount
+        const unreleasedAmount = contract.milestones
+          .filter((m) => m.status !== 'ACCEPTED')
+          .reduce((sum, m) => sum + m.amount, 0);
+
+        if (unreleasedAmount <= 0) {
+          return { success: false, error: 'Không có số dư ký quỹ chưa giải ngân.' };
+        }
+
+        // Update contract milestones progress and status to PENDING / 0 progress
+        const updatedContracts = get().contracts.map((c) => {
+          if (c.id === contractId) {
+            return {
+              ...c,
+              status: 'COMPLETED' as const, // Close contract
+              milestones: c.milestones.map(m => m.status !== 'ACCEPTED' ? { ...m, status: 'PENDING' as const, progress: 0 } : m)
+            };
+          }
+          return c;
+        });
+
+        // Chuyển tiền từ Escrow về lại Balance
+        const wallet = get().wallet;
+        const newBalance = wallet.balance + unreleasedAmount;
+        const newEscrow = Math.max(0, wallet.escrow - unreleasedAmount);
+
+        const newTransaction: Transaction = {
+          id: `tx-refund-${Date.now()}`,
+          type: 'REFUND',
+          amount: unreleasedAmount,
+          description: `Hoàn trả ký quỹ hợp đồng: ${contract.jobTitle}`,
+          descKey: 'refund' as any,
+          descParams: { jobId: contract.jobId },
+          date: new Date().toISOString().split('T')[0],
+          status: 'SUCCESS'
+        };
+
+        set({
+          contracts: updatedContracts.filter(c => c.id !== contractId), // remove or complete
+          wallet: {
+            ...wallet,
+            balance: newBalance,
+            escrow: newEscrow,
+            transactions: [newTransaction, ...wallet.transactions]
+          }
+        });
+
+        return { success: true };
+      },
+
       simulateClientAcceptBid: (bidId) => {
         const bid = get().bids.find((b) => b.id === bidId);
-        if (!bid || bid.status !== 'PENDING') return;
+        if (!bid || bid.status !== 'PENDING') return { success: false, error: 'Đề xuất thầu không hợp lệ' };
+
+        const contractAmount = bid.amount;
+        const wallet = get().wallet;
+
+        // Check if balance is sufficient
+        if (wallet.balance < contractAmount) {
+          return { success: false, error: 'INSUFFICIENT_FUNDS' };
+        }
 
         // Cập nhật trạng thái bid sang ACCEPTED
         const updatedBids = get().bids.map((b) =>
@@ -795,7 +900,6 @@ export const useFreelancer = create<FreelancerStore>()(
         );
 
         // Tạo contract mới
-        const contractAmount = bid.amount;
         const newContract: Contract = {
           id: `con-${Date.now()}`,
           jobId: bid.jobId,
@@ -832,8 +936,7 @@ export const useFreelancer = create<FreelancerStore>()(
           ]
         };
 
-        // Cộng tiền vào Escrow
-        const wallet = get().wallet;
+        const newBalance = wallet.balance - contractAmount;
         const newEscrow = wallet.escrow + contractAmount;
 
         const newTransaction: Transaction = {
@@ -852,10 +955,13 @@ export const useFreelancer = create<FreelancerStore>()(
           contracts: [newContract, ...get().contracts],
           wallet: {
             ...wallet,
+            balance: newBalance,
             escrow: newEscrow,
             transactions: [newTransaction, ...wallet.transactions]
           }
         });
+
+        return { success: true };
       }
     }),
     {

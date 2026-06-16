@@ -70,7 +70,19 @@ export default function ClientJobsTab() {
   const filteredJobs = filterTab === 'ALL' ? jobs : jobs.filter((j) => j.status === filterTab);
 
   const handleAcceptBid = (bidId: string) => {
-    simulateClientAcceptBid(bidId);
+    const res = simulateClientAcceptBid(bidId);
+    if (!res.success) {
+      if (res.error === 'INSUFFICIENT_FUNDS') {
+        toast.error(
+          language === 'vi'
+            ? 'Số dư ví của bạn không đủ để thực hiện ký quỹ cho hợp đồng này. Vui lòng nạp thêm tiền.'
+            : 'Your wallet balance is insufficient to escrow this contract. Please deposit more funds.'
+        );
+      } else {
+        toast.error(res.error || 'Failed to accept bid');
+      }
+      return;
+    }
     setSuccessMsg(
       language === 'vi'
         ? 'Đã phê duyệt đề xuất thầu thành công! Hợp đồng mới đã được khởi tạo và số tiền đã được chuyển vào Ký quỹ (Escrow).'

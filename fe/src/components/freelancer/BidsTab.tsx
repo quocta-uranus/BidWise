@@ -258,8 +258,20 @@ export default function BidsTab() {
                         {/* Demo Trigger: Client Accepts */}
                         <button
                           onClick={() => {
-                            simulateClientAcceptBid(bid.id);
-                            alert(t('bids.demoAcceptAlert', { client: bid.clientName }));
+                            const res = simulateClientAcceptBid(bid.id);
+                            if (res.success) {
+                              alert(t('bids.demoAcceptAlert', { client: bid.clientName }));
+                            } else {
+                              if (res.error === 'INSUFFICIENT_FUNDS') {
+                                alert(
+                                  language === 'vi'
+                                    ? 'Số dư ví của khách hàng không đủ để thực hiện ký quỹ. Vui lòng chuyển sang vai Client để nạp thêm tiền.'
+                                    : 'The client\'s wallet balance is insufficient to escrow this contract. Please switch to the Client role and deposit funds first.'
+                                );
+                              } else {
+                                alert(res.error || 'Failed to simulate accept');
+                              }
+                            }
                           }}
                           className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-lg shadow-sm"
                           title="Demo"
