@@ -10,6 +10,7 @@ import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import { getJobTitle } from '@/lib/i18n/demo-content';
 import { jobsApi } from '@/lib/api/jobs.api';
+import { Inbox } from 'lucide-react';
 
 // Import subcomponents
 import ProfileTab from '@/components/freelancer/ProfileTab';
@@ -612,8 +613,8 @@ export default function DashboardPage() {
                           </button>
                         </div>
                         {clientJobs.length === 0 ? (
-                          <div className="text-center py-4 text-xs text-slate-400">
-                            <p className="text-xl mb-1">📭</p>
+                          <div className="text-center py-6 text-xs text-slate-400 flex flex-col items-center justify-center space-y-2">
+                            <Inbox className="w-8 h-8 text-slate-300" />
                             <p>{language === 'vi' ? 'Chưa có dự án nào. Đăng ngay!' : 'No jobs posted yet. Post one now!'}</p>
                           </div>
                         ) : (

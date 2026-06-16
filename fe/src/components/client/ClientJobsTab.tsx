@@ -10,7 +10,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import CreateJobModal from './CreateJobModal';
 import EditJobModal from './EditJobModal';
 import { toast } from 'sonner';
-import { Edit2, Trash2, Plus } from 'lucide-react';
+import { Edit2, Trash2, Plus, Lock, Unlock, Calendar, DollarSign, Send, Inbox, ExternalLink, Check, FolderOpen } from 'lucide-react';
 
 export default function ClientJobsTab() {
   const { bids, simulateClientAcceptBid } = useFreelancer();
@@ -153,7 +153,7 @@ export default function ClientJobsTab() {
       {/* Success toast */}
       {successMsg && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-          <span className="text-xl shrink-0">✅</span>
+          <Check className="w-5 h-5 text-emerald-600 bg-emerald-100 p-0.5 rounded-full shrink-0 border border-emerald-200" />
           <p className="text-xs font-bold">{successMsg}</p>
         </div>
       )}
@@ -206,12 +206,12 @@ export default function ClientJobsTab() {
               <div className="py-10 text-center text-xs text-slate-400">Loading jobs...</div>
             ) : filteredJobs.length === 0 ? (
               <div className="py-10 text-center text-xs text-slate-400 leading-relaxed">
-                <p className="text-2xl mb-2">📭</p>
+                <Inbox className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 {filterTab !== 'ALL'
                   ? `No ${filterTab} jobs.`
                   : language === 'vi'
-                    ? 'Bạn chưa đăng dự án nào. Nhấn "+ Đăng mới" để bắt đầu!'
-                    : 'No jobs posted yet. Click "+ Post Job" to get started!'}
+                    ? 'Bạn chưa đăng dự án nào. Nhấn "Đăng dự án mới" để bắt đầu!'
+                    : 'No jobs posted yet. Click "Post New Job" to get started!'}
               </div>
             ) : (
               filteredJobs.map((job) => {
@@ -246,8 +246,13 @@ export default function ClientJobsTab() {
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getCategoryColor(job.category?.name || '')}`}>
                         {job.category?.name || 'Uncategorized'}
                       </span>
-                      <span className="text-[9px] font-semibold text-slate-400">
-                        {job.auctionType === 'SEALED' ? '🔒' : '🔓'} {job.auctionType}
+                      <span className="text-[9px] font-semibold text-slate-400 flex items-center gap-1">
+                        {job.auctionType === 'SEALED' || job.auctionType === 'SEALED_BID' ? (
+                          <Lock className="w-3 h-3 text-slate-400" />
+                        ) : (
+                          <Unlock className="w-3 h-3 text-slate-400" />
+                        )}
+                        {job.auctionType}
                       </span>
                     </div>
 
@@ -286,9 +291,10 @@ export default function ClientJobsTab() {
             <div className="px-4 pb-4 pt-1">
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="w-full h-9 rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 text-blue-500 hover:text-blue-700 text-xs font-extrabold transition-all"
+                className="w-full h-9 rounded-xl border-2 border-dashed border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 text-blue-500 hover:text-blue-700 text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
               >
-                + {t('jobs.postJobBtn')}
+                <Plus className="w-4 h-4" />
+                {t('jobs.postJobBtn')}
               </button>
             </div>
           )}
@@ -312,9 +318,24 @@ export default function ClientJobsTab() {
                       <span className={`px-2 py-0.5 rounded border font-bold ${getCategoryColor(selectedJob.category?.name || '')}`}>
                         {selectedJob.category?.name || 'Uncategorized'}
                       </span>
-                      <span>{selectedJob.auctionType === 'SEALED' ? '🔒 Sealed Bid' : '🔓 Open Bid'}</span>
-                      <span>📅 {language === 'vi' ? 'Hạn:' : 'Deadline:'} {new Date(selectedJob.deadline).toLocaleDateString()}</span>
-                      <span>💰 {formatBudget(selectedJob)}</span>
+                      <span className="flex items-center gap-1">
+                        {selectedJob.auctionType === 'SEALED' || selectedJob.auctionType === 'SEALED_BID' ? (
+                          <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        ) : (
+                          <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                        {selectedJob.auctionType === 'SEALED' || selectedJob.auctionType === 'SEALED_BID'
+                          ? (language === 'vi' ? 'Đấu thầu kín' : 'Sealed Bid')
+                          : (language === 'vi' ? 'Đấu thầu công khai' : 'Open Bid')}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        {language === 'vi' ? 'Hạn:' : 'Deadline:'} {new Date(selectedJob.deadline).toLocaleDateString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                        {formatBudget(selectedJob)}
+                      </span>
                     </div>
                   </div>
 
@@ -322,24 +343,27 @@ export default function ClientJobsTab() {
                     {selectedJob.status === 'DRAFT' && (
                       <button
                         onClick={() => handleStatusChange(selectedJob.id, 'OPEN')}
-                        className="h-8 px-3 rounded-lg border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold transition-colors"
+                        className="h-8 px-3 rounded-lg border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold transition-colors flex items-center gap-1.5"
                       >
-                        🚀 {language === 'vi' ? 'Xuất bản' : 'Publish'}
+                        <Send className="w-3.5 h-3.5" />
+                        {language === 'vi' ? 'Xuất bản' : 'Publish'}
                       </button>
                     )}
                     {selectedJob.status === 'OPEN' && (
                       <button
-                        onClick={() => handleStatusChange(selectedJob.id, 'CANCELLED')}
-                        className="h-8 px-3 rounded-lg border border-amber-100 text-amber-600 hover:bg-amber-50 text-xs font-bold transition-colors"
+                        onClick={() => handleStatusChange(selectedJob.id, 'CLOSED')}
+                        className="h-8 px-3 rounded-lg border border-amber-100 text-amber-600 hover:bg-amber-50 text-xs font-bold transition-colors flex items-center gap-1.5"
                       >
-                        🔒 {language === 'vi' ? 'Đóng thầu' : 'Close Job'}
+                        <Lock className="w-3.5 h-3.5" />
+                        {language === 'vi' ? 'Đóng thầu' : 'Close Job'}
                       </button>
                     )}
                     <button
                       onClick={() => handleDeleteJob(selectedJob.id)}
-                      className="h-8 px-3 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-xs font-bold transition-colors shrink-0"
+                      className="h-8 px-3 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5"
                     >
-                      🗑 {t('jobs.deleteJobBtn')}
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {t('jobs.deleteJobBtn')}
                     </button>
                   </div>
                 </div>
@@ -365,10 +389,12 @@ export default function ClientJobsTab() {
                 </h4>
 
                 {getBidsForJob(selectedJob.id).length === 0 ? (
-                  <div className="text-center py-10 text-xs text-slate-400 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50 space-y-1">
-                    <p className="text-2xl">📬</p>
-                    <p>{language === 'vi' ? 'Chưa có đề xuất thầu nào cho dự án này.' : 'No bids received for this project yet.'}</p>
-                    <p className="text-[10px]">{language === 'vi' ? 'Freelancers sẽ sớm gửi đề xuất sau khi dự án được đăng.' : 'Freelancers will start submitting proposals shortly.'}</p>
+                  <div className="text-center py-10 text-xs text-slate-400 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50 space-y-2">
+                    <Inbox className="w-8 h-8 mx-auto text-slate-300" />
+                    <div>
+                      <p className="font-semibold">{language === 'vi' ? 'Chưa có đề xuất thầu nào cho dự án này.' : 'No bids received for this project yet.'}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{language === 'vi' ? 'Freelancers sẽ sớm gửi đề xuất sau khi dự án được đăng.' : 'Freelancers will start submitting proposals shortly.'}</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -429,16 +455,20 @@ export default function ClientJobsTab() {
                               onClick={() => setSelectedBid(bid)}
                               className="text-xs text-blue-600 font-bold hover:underline"
                             >
-                              {language === 'vi' ? '↗ Xem chi tiết đề xuất' : '↗ View full proposal'}
+                              <span className="flex items-center gap-1">
+                                {language === 'vi' ? 'Xem chi tiết đề xuất' : 'View full proposal'}
+                                <ExternalLink className="w-3 h-3" />
+                              </span>
                             </button>
 
                             {!isAccepted && bid.status === 'PENDING' ? (
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleAcceptBid(bid.id)}
-                                  className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors"
+                                  className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1"
                                 >
-                                  ✓ {language === 'vi' ? 'Phê duyệt' : 'Accept'}
+                                  <Check className="w-3.5 h-3.5" />
+                                  {language === 'vi' ? 'Phê duyệt' : 'Accept'}
                                 </button>
                                 <button
                                   onClick={() => alert(language === 'vi' ? 'Đã từ chối đề xuất.' : 'Proposal rejected.')}
@@ -463,7 +493,7 @@ export default function ClientJobsTab() {
           ) : (
             /* Empty-state right panel */
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-400 text-sm shadow-sm flex flex-col items-center justify-center min-h-[320px] space-y-4">
-              <div className="text-5xl">📂</div>
+              <FolderOpen className="w-12 h-12 text-slate-300 mx-auto" />
               <div className="space-y-1.5">
                 <p className="font-bold text-slate-700">
                   {language === 'vi' ? 'Chọn dự án để xem chi tiết' : 'Select a job to view details'}
@@ -476,9 +506,10 @@ export default function ClientJobsTab() {
               </div>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="h-10 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm transition-colors"
+                className="h-10 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm transition-colors flex items-center gap-1.5"
               >
-                + {t('jobs.postJobBtn')}
+                <Plus className="w-4 h-4" />
+                {t('jobs.postJobBtn')}
               </button>
             </div>
           )}

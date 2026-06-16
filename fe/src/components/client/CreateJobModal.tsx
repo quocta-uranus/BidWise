@@ -6,7 +6,7 @@ import { jobsApi } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
 import {
   X, Lock, Unlock, ChevronRight, ChevronLeft,
-  Send, Loader2, Check, Briefcase, AlertCircle, Info
+  Send, Loader2, Check, Briefcase, AlertCircle, Info, Sparkles
 } from 'lucide-react';
 
 interface Props {
@@ -208,7 +208,9 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
         {/* Success State */}
         {success ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16 px-6">
-            <div className="text-5xl animate-bounce">🎉</div>
+            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center border border-emerald-100 text-emerald-600 animate-bounce">
+              <Sparkles className="w-8 h-8" />
+            </div>
             <p className="font-extrabold text-lg text-slate-900 text-center">
               {language === 'vi' ? 'Dự án đã được lưu thành công!' : 'Job posted successfully!'}
             </p>

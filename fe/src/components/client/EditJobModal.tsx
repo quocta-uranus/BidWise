@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { jobsApi } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import { X, ChevronRight, ChevronLeft, Edit2, Lock, Save, Loader2, Check } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Edit2, Lock, Unlock, Save, Loader2, Check, Scale, AlertCircle, DollarSign, BarChart2 } from 'lucide-react';
 
 interface Props {
   jobId: string;
@@ -253,7 +253,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                           {at === 'SEALED_BID' ? (
                             <span className="flex items-center justify-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Sealed Bid</span>
                           ) : (
-                            <span className="flex items-center justify-center gap-1.5">🔓 Open Bid</span>
+                            <span className="flex items-center justify-center gap-1.5"><Unlock className="w-3.5 h-3.5" /> Open Bid</span>
                           )}
                         </button>
                       ))}
@@ -281,9 +281,11 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                               : 'border-slate-200 text-slate-500 hover:border-blue-300'
                           }`}
                         >
-                          {fmt === 'FIXED'
-                            ? (language === 'vi' ? '💰 Giá cố định' : '💰 Fixed Price')
-                            : (language === 'vi' ? '📊 Khoảng giá' : '📊 Price Range')}
+                          {fmt === 'FIXED' ? (
+                            <span className="flex items-center justify-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> {language === 'vi' ? 'Giá cố định' : 'Fixed Price'}</span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> {language === 'vi' ? 'Khoảng giá' : 'Price Range'}</span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -342,7 +344,8 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
-                        ⚖️ {language === 'vi' ? 'Trọng số đánh giá AHP' : 'AHP Evaluation Weights'}
+                        <Scale className="w-4 h-4 text-blue-500" />
+                        {language === 'vi' ? 'Trọng số đánh giá AHP' : 'AHP Evaluation Weights'}
                       </h3>
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         {hasBids
@@ -377,7 +380,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
 
                   {!hasBids && !isWeightValid && (
                     <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700 font-semibold flex items-center gap-2">
-                      <span>⚠️</span>
+                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                       <span>
                         {language === 'vi'
                           ? `Tổng hiện tại: ${totalWeight}%. Cần ${totalWeight > 100 ? 'giảm' : 'tăng'} ${Math.abs(100 - totalWeight)}% nữa.`
