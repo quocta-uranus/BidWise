@@ -4,6 +4,7 @@ import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { jobsApi } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
+import { X, Lock, Unlock, ChevronRight, ChevronLeft, Send, Loader2, Check, Briefcase } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
@@ -14,13 +15,11 @@ const AUCTION_TYPES = [
   {
     value: 'OPEN_BID',
     label: { vi: 'Đấu thầu công khai', en: 'Open Bid' },
-    icon: '🔓',
     desc: { vi: 'Tất cả freelancer đều thấy mức giá của nhau.', en: 'All freelancers can see each other\'s bids.' },
   },
   {
     value: 'SEALED_BID',
     label: { vi: 'Đấu thầu kín', en: 'Sealed Bid' },
-    icon: '🔒',
     desc: { vi: 'Giá thầu được giữ bí mật cho đến khi kết thúc.', en: 'Bid amounts are hidden until the deadline.' },
   },
 ];
@@ -167,8 +166,9 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-t-2xl">
           <div>
-            <h2 className="font-extrabold text-xl text-white leading-snug">
-              {language === 'vi' ? '🚀 Đăng dự án mới' : '🚀 Post a New Job'}
+            <h2 className="font-extrabold text-xl text-white leading-snug flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              {language === 'vi' ? 'Đăng dự án mới' : 'Post a New Job'}
             </h2>
             <p className="text-blue-100 text-xs mt-0.5 font-medium">
               {language === 'vi' ? 'Tìm freelancer phù hợp nhất qua hệ thống AHP-TOPSIS' : 'Find the best freelancer via AHP-TOPSIS matching'}
@@ -176,9 +176,9 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="mt-0.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center font-bold text-sm transition-colors"
+            className="mt-0.5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -192,7 +192,7 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                   : currentStep > step.num ? 'bg-emerald-500 text-white'
                   : 'bg-slate-200 text-slate-400'
                 }`}>
-                  {currentStep > step.num ? '✓' : step.num}
+                  {currentStep > step.num ? <Check className="w-3.5 h-3.5" /> : step.num}
                 </div>
                 <span className={`text-[11px] font-bold ${currentStep === step.num ? 'text-blue-600' : currentStep > step.num ? 'text-emerald-600' : 'text-slate-400'}`}>
                   {step.label}
@@ -218,7 +218,11 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
             <div className="w-8 h-1 rounded-full bg-blue-600 animate-pulse" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+          <form
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+            className="flex-1 overflow-y-auto"
+          >
             <div className="px-6 py-5 space-y-5">
 
               {/* ── STEP 1: Basic Info ── */}
@@ -269,13 +273,16 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                             type="button"
                             onClick={() => setAuctionType(at.value)}
                             title={at.desc[language as 'vi' | 'en']}
-                            className={`flex-1 h-full rounded-xl border text-[10px] font-extrabold transition-all ${
+                            className={`flex-1 h-full rounded-xl border text-[10px] font-extrabold transition-all flex items-center justify-center gap-1.5 ${
                               auctionType === at.value
                                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                                 : 'border-slate-200 text-slate-500 hover:border-blue-300'
                             }`}
                           >
-                            {at.icon} {at.label[language as 'vi' | 'en']}
+                            {at.value === 'OPEN_BID'
+                              ? <Unlock className="w-3.5 h-3.5" />
+                              : <Lock className="w-3.5 h-3.5" />}
+                            {at.label[language as 'vi' | 'en']}
                           </button>
                         ))}
                       </div>
@@ -357,8 +364,8 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                           }`}
                         >
                           {fmt === 'FIXED'
-                            ? (language === 'vi' ? '💰 Giá cố định' : '💰 Fixed Price')
-                            : (language === 'vi' ? '📊 Khoảng giá' : '📊 Price Range')}
+                            ? (language === 'vi' ? 'Giá cố định' : 'Fixed Price')
+                            : (language === 'vi' ? 'Khoảng giá' : 'Price Range')}
                         </button>
                       ))}
                     </div>
@@ -456,7 +463,7 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-extrabold text-sm text-slate-800">
-                        {language === 'vi' ? '⚖️ Trọng số đánh giá AHP' : '⚖️ AHP Evaluation Weights'}
+                        {language === 'vi' ? 'Trọng số đánh giá AHP' : 'AHP Evaluation Weights'}
                       </h3>
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         {language === 'vi'
@@ -507,7 +514,7 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
 
                   {!isWeightValid && (
                     <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700 font-semibold flex items-center gap-2">
-                      <span>⚠️</span>
+                      <AlertCircle className="w-4 h-4" />
                       <span>
                         {language === 'vi'
                           ? `Tổng hiện tại là ${totalWeight}%. Cần ${totalWeight > 100 ? 'giảm' : 'tăng'} ${Math.abs(100 - totalWeight)}% nữa.`
@@ -527,9 +534,10 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                   <button
                     type="button"
                     onClick={() => setCurrentStep((s) => s - 1)}
-                    className="h-10 px-4 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors"
+                    className="h-10 px-4 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors flex items-center gap-1.5"
                   >
-                    ← {language === 'vi' ? 'Quay lại' : 'Back'}
+                    <ChevronLeft className="w-4 h-4" />
+                    {language === 'vi' ? 'Quay lại' : 'Back'}
                   </button>
                 )}
                 <button
@@ -545,26 +553,21 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-sm transition-all flex items-center gap-2"
+                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-sm transition-all flex items-center gap-1.5"
                 >
-                  {language === 'vi' ? 'Tiếp theo' : 'Next'} →
+                  {language === 'vi' ? 'Tiếp theo' : 'Next'}
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={submitting || !isWeightValid}
-                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
                   {submitting ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      {language === 'vi' ? 'Đang lưu...' : 'Saving...'}
-                    </>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> {language === 'vi' ? 'Đang lưu...' : 'Saving...'}</>
                   ) : (
-                    <>🚀 {language === 'vi' ? 'Đăng dự án' : 'Post Job'}</>
+                    <><Send className="w-4 h-4" /> {language === 'vi' ? 'Đăng dự án' : 'Post Job'}</>
                   )}
                 </button>
               )}
