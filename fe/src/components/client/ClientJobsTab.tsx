@@ -8,6 +8,7 @@ import { getJobTitle } from '@/lib/i18n/demo-content';
 import { jobsApi } from '@/lib/api/jobs.api';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import CreateJobModal from './CreateJobModal';
+import EditJobModal from './EditJobModal';
 import { toast } from 'sonner';
 
 export default function ClientJobsTab() {
@@ -20,6 +21,7 @@ export default function ClientJobsTab() {
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [filterTab, setFilterTab] = useState('ALL');
   
@@ -255,14 +257,13 @@ export default function ClientJobsTab() {
                         <span className="font-bold text-blue-600">
                           {job._count?.bids || 0} {language === 'vi' ? 'đề xuất' : 'bids'}
                         </span>
-                        <a
-                          href={`/client/jobs/${job.id}/edit`}
-                          onClick={(e) => e.stopPropagation()}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingJobId(job.id); }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600 font-black text-xs"
                           title="Edit"
                         >
                           ✏️
-                        </a>
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteJob(job.id); }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-600 font-black text-xs"
@@ -575,6 +576,17 @@ export default function ClientJobsTab() {
             setSuccessMsg(t('jobs.publishJobSuccess'));
             setTimeout(() => setSuccessMsg(''), 4500);
             fetchJobs();
+          }}
+        />
+      )}
+
+      {editingJobId && (
+        <EditJobModal
+          jobId={editingJobId}
+          onClose={() => setEditingJobId(null)}
+          onSuccess={() => {
+            fetchJobs();
+            setEditingJobId(null);
           }}
         />
       )}
