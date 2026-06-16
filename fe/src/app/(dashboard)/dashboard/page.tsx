@@ -17,6 +17,7 @@ import BidsTab from '@/components/freelancer/BidsTab';
 import ContractsTab from '@/components/freelancer/ContractsTab';
 import EarningsTab from '@/components/freelancer/EarningsTab';
 import ClientJobsTab from '@/components/client/ClientJobsTab';
+import CreateJobModal from '@/components/client/CreateJobModal';
 
 // Client subcomponents
 import ExploreFreelancersTab from '@/components/client/ExploreFreelancersTab';
@@ -45,6 +46,7 @@ export default function DashboardPage() {
 
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Sync tab value when role changes to avoid non-existent tab
   useEffect(() => {
@@ -467,10 +469,10 @@ export default function DashboardPage() {
                       
                       {user.roles.includes('CLIENT') && (
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                          <Link href="/client/jobs/create" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2">
+                          <button onClick={() => setShowCreateModal(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             Post a New Job
-                          </Link>
+                          </button>
                           <button onClick={() => setActiveTab('jobs')} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors">
                             View My Projects
                           </button>
@@ -665,6 +667,14 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Create Job Modal for Dashboard overview */}
+                {showCreateModal && (
+                  <CreateJobModal
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={() => setActiveTab('jobs')}
+                  />
+                )}
               </div>
             )}
 
