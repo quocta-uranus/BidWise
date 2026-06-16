@@ -16,9 +16,9 @@ import JobsTab from '@/components/freelancer/JobsTab';
 import BidsTab from '@/components/freelancer/BidsTab';
 import ContractsTab from '@/components/freelancer/ContractsTab';
 import EarningsTab from '@/components/freelancer/EarningsTab';
+import ClientJobsTab from '@/components/client/ClientJobsTab';
 
 // Client subcomponents
-import ClientJobsTab from '@/components/client/ClientJobsTab';
 import ExploreFreelancersTab from '@/components/client/ExploreFreelancersTab';
 
 const roleColors: Record<string, string> = {
@@ -471,9 +471,9 @@ export default function DashboardPage() {
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             Post a New Job
                           </Link>
-                          <Link href="/client/jobs" className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors">
+                          <button onClick={() => setActiveTab('jobs')} className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors">
                             View My Projects
-                          </Link>
+                          </button>
                         </div>
                       )}
                     </div>
