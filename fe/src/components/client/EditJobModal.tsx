@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { jobsApi } from '@/lib/api/jobs.api';
+import { jobsApi, AhpWeight } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { X, ChevronRight, ChevronLeft, Edit2, Lock, Unlock, Save, Loader2, Check, Scale, AlertCircle, DollarSign, BarChart2 } from 'lucide-react';
@@ -103,7 +103,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
           deadline:    formData.deadline    ? new Date(formData.deadline).toISOString() : undefined,
           auctionType: formData.auctionType,
           skills: formData.skills.split(',').map((s) => s.trim()).filter(Boolean),
-          ahpWeight: weights,
+          ahpWeight: weights as any,
         };
       }
       await jobsApi.update(jobId, payload);

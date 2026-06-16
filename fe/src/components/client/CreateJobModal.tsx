@@ -2,7 +2,7 @@
 
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import { jobsApi } from '@/lib/api/jobs.api';
+import { jobsApi, AhpWeight } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
 import {
   X, Lock, Unlock, ChevronRight, ChevronLeft,
@@ -141,7 +141,7 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
         deadline: new Date(deadline).toISOString(),
         auctionType: auctionType as any,
         skills,
-        ahpWeight: weights,
+        ahpWeight: weights as any,
       });
       setSuccess(true);
       setTimeout(() => { onClose(); onSuccess?.(); }, 1800);
