@@ -15,17 +15,21 @@ export default function RoleSwitcher() {
 
   const currentRole = user.roles[0] || 'FREELANCER';
 
+  // Only show roles that user actually has
   const roles = [
-    { key: 'FREELANCER', label: t('roles.FREELANCER'), icon: '🚀' },
-    { key: 'CLIENT', label: t('roles.CLIENT'), icon: '💼' },
-    { key: 'ADMIN', label: t('roles.ADMIN'), icon: '🛡️' },
-  ];
+    { key: 'FREELANCER', label: t('roles.FREELANCER'), icon: '🚀', hasAccess: user.roles.includes('FREELANCER') },
+    { key: 'CLIENT', label: t('roles.CLIENT'), icon: '💼', hasAccess: user.roles.includes('CLIENT') },
+    { key: 'ADMIN', label: t('roles.ADMIN'), icon: '🛡️', hasAccess: user.roles.some((r) => r === 'ADMIN' || r === 'MODERATOR') },
+  ].filter((r) => r.hasAccess);
 
   const handleRoleChange = (roleKey: string) => {
-    // Temporarily override user roles to switch view
+    // Verify user has this role before switching
+    if (!user.roles.includes(roleKey as any) && !(roleKey === 'ADMIN' && user.roles.some((r) => r === 'MODERATOR'))) {
+      return; // Security: reject if user doesn't have this role
+    }
     updateUser({ roles: [roleKey] });
     setIsOpen(false);
-    
+
     if (roleKey === 'ADMIN') {
       router.push('/admin');
     } else {
@@ -52,7 +56,7 @@ export default function RoleSwitcher() {
         <>
           {/* Overlay to close */}
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          
+
           <div className="absolute right-0 mt-1.5 w-40 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
             {roles.map((r) => (
               <button
