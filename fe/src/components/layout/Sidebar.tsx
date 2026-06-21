@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth/auth.store';
+import { getPrimaryPortal } from '@/lib/auth/role-routing';
 import {
   LayoutDashboard,
   FolderOpen,
@@ -13,7 +14,7 @@ import {
   LogOut,
   Plus,
   Users,
-  Briefcase
+  Briefcase,
 } from 'lucide-react';
 
 import { useEffect, useState } from 'react';
@@ -35,40 +36,35 @@ export default function Sidebar() {
     }
   }, [mounted, isLoading, user, router]);
 
-  const isAdmin = user?.roles.includes('ADMIN');
-  const isFreelancer = user?.roles.includes('FREELANCER');
-  const isClient = user?.roles.includes('CLIENT');
-
+  // Build nav for the *primary* portal only — never mix two portals.
+  // This is the fix for "account A shows the menu of account B".
   let roleSubtitle = 'User';
   let navItems: { label: string; href: string; icon: any }[] = [];
-  let actionButton = null;
+  let actionButton: { label: string; icon: any; href: string } | null = null;
 
-  if (isAdmin) {
-    roleSubtitle = 'Admin Panel';
-    navItems = [
-      { label: 'Manage Accounts', href: '/admin', icon: Users },
-    ];
-  } else if (isFreelancer) {
-    roleSubtitle = 'Pro Freelancer';
-    navItems = [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Projects', href: '/projects', icon: FolderOpen },
-      { label: 'Proposals', href: '/proposals', icon: FileText },
-      { label: 'Profile', href: '/profile', icon: User },
-    ];
-    actionButton = { label: 'New Bid', icon: Plus };
-  } else if (isClient) {
-    roleSubtitle = 'Client Portal';
-    navItems = [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'My Projects', href: '/client/jobs', icon: FolderOpen },
-      { label: 'Freelancers', href: '/freelancers', icon: Briefcase },
-    ];
-  } else {
-    roleSubtitle = 'Welcome';
-    navItems = [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ];
+  if (user) {
+    const portal = getPrimaryPortal(user);
+    if (portal === 'ADMIN') {
+      roleSubtitle = 'Admin Panel';
+      navItems = [{ label: 'Manage Accounts', href: '/admin', icon: Users }];
+    } else if (portal === 'FREELANCER') {
+      roleSubtitle = 'Pro Freelancer';
+      navItems = [
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { label: 'Tìm việc', href: '/projects', icon: FolderOpen },
+        { label: 'Bids của tôi', href: '/proposals', icon: FileText },
+        { label: 'Hồ sơ', href: '/profile', icon: User },
+      ];
+      actionButton = { label: 'Tìm job mới', icon: Plus, href: '/projects' };
+    } else {
+      roleSubtitle = 'Client Portal';
+      navItems = [
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { label: 'Dự án của tôi', href: '/client/jobs', icon: FolderOpen },
+        { label: 'Tìm freelancer', href: '/freelancers', icon: Briefcase },
+      ];
+      actionButton = { label: 'Đăng job mới', icon: Plus, href: '/client/jobs/create' };
+    }
   }
 
   if (!mounted || isLoading) {
@@ -83,7 +79,7 @@ export default function Sidebar() {
   }
 
   if (!user) {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
   return (
@@ -97,7 +93,7 @@ export default function Sidebar() {
       {/* Main Nav */}
       <nav className="flex-1 px-4 space-y-1.5 mt-2">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
           return (
             <Link
@@ -118,24 +114,24 @@ export default function Sidebar() {
 
       {/* Bottom Nav */}
       <div className="p-4 space-y-4">
-        {actionButton && (() => {
-          const ActionIcon = actionButton.icon;
-          return (
-            <Link
-              href={(actionButton as any).href || '#'}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
-            >
-              <ActionIcon className="w-4 h-4" />
-              {actionButton.label}
-            </Link>
-          );
-        })()}
+        {actionButton && (
+          <Link
+            href={actionButton.href}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-600/20"
+          >
+            <actionButton.icon className="w-4 h-4" />
+            {actionButton.label}
+          </Link>
+        )}
 
         <div className="space-y-1">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-            <HelpCircle className="w-5 h-5" />
-            <span className="text-sm">Help</span>
-          </button>
+          <Link
+            href="/settings"
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-sm">Settings</span>
+          </Link>
           <button
             onClick={() => logout()}
             className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors"

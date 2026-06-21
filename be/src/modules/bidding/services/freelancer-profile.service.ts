@@ -15,9 +15,12 @@ export class FreelancerProfileService {
 
   async getWithUser(userId: string) {
     await this.getOrCreate(userId);
-    return this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { freelancerProfile: true },
+    return this.prisma.freelancerProfile.findUnique({
+      where: { userId },
+      include: {
+        portfolios: true,
+        certifications: true,
+      },
     });
   }
 

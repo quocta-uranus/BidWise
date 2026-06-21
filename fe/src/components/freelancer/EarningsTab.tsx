@@ -4,6 +4,19 @@ import { useState, useMemo } from 'react';
 import { useFreelancer } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { localizeTransaction } from '@/lib/i18n/demo-content';
+import {
+  BarChart3,
+  History,
+  Wallet,
+  Award,
+  TrendingUp,
+  Star,
+  Target,
+  Percent,
+  FileText,
+  Settings,
+  CheckCircle2,
+} from 'lucide-react';
 
 /* ── helpers ──────────────────────────────────────────────────── */
 type TabKey = 'overview' | 'history' | 'withdraw' | 'reputation';
@@ -176,11 +189,11 @@ export default function EarningsTab() {
   const pendingReviewContracts = completed.filter((c) => !c.clientReviewed);
 
   /* ── tab nav items ── */
-  const TABS: { key: TabKey; label: { vi: string; en: string }; icon: string }[] = [
-    { key: 'overview',    label: { vi: 'Tổng quan',         en: 'Overview'       }, icon: '📊' },
-    { key: 'history',     label: { vi: 'Lịch sử giao dịch', en: 'Transactions'   }, icon: '📜' },
-    { key: 'withdraw',    label: { vi: 'Rút tiền',           en: 'Withdraw'       }, icon: '💸' },
-    { key: 'reputation',  label: { vi: 'Skill Reputation',   en: 'Skill Scores'   }, icon: '🏅' },
+  const TABS: { key: TabKey; label: { vi: string; en: string }; icon: React.ReactNode }[] = [
+    { key: 'overview',    label: { vi: 'Tổng quan',         en: 'Overview'       }, icon: <BarChart3 className="w-4 h-4" /> },
+    { key: 'history',     label: { vi: 'Lịch sử giao dịch', en: 'Transactions'   }, icon: <History className="w-4 h-4" /> },
+    { key: 'withdraw',    label: { vi: 'Rút tiền',           en: 'Withdraw'       }, icon: <Wallet className="w-4 h-4" /> },
+    { key: 'reputation',  label: { vi: 'Skill Reputation',   en: 'Skill Scores'   }, icon: <Award className="w-4 h-4" /> },
   ];
 
   const L = (vi: string, en: string) => language === 'vi' ? vi : en;
@@ -282,13 +295,13 @@ export default function EarningsTab() {
               {/* KPI grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { icon: '🏆', label: L('Hợp đồng hoàn thành', 'Completed Contracts'), value: String(completed.length), color: 'text-green-600' },
-                  { icon: '⭐', label: L('Avg. Rating', 'Avg. Rating'),                  value: `${avgRating}/5`,         color: 'text-amber-500' },
-                  { icon: '🎯', label: L('Thầu đang chờ',    'Active Bids'),              value: String(activeBidsCount),  color: 'text-blue-600'  },
-                  { icon: '📈', label: L('Tỷ lệ thành công',  'Success Rate'),             value: `${successRate}%`,        color: 'text-indigo-600'},
-                ].map((kpi) => (
-                  <div key={kpi.label} className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-1 hover:border-slate-200 transition-colors">
-                    <div className="text-2xl">{kpi.icon}</div>
+                  { icon: <TrendingUp className="w-6 h-6 text-green-500" />, label: L('Hợp đồng hoàn thành', 'Completed Contracts'), value: String(completed.length), color: 'text-green-600' },
+                  { icon: <Star className="w-6 h-6 text-amber-500" />, label: L('Avg. Rating', 'Avg. Rating'), value: `${avgRating}/5`, color: 'text-amber-500' },
+                  { icon: <Target className="w-6 h-6 text-blue-500" />, label: L('Thầu đang chờ', 'Active Bids'), value: String(activeBidsCount), color: 'text-blue-600' },
+                  { icon: <Percent className="w-6 h-6 text-indigo-500" />, label: L('Tỷ lệ thành công', 'Success Rate'), value: `${successRate}%`, color: 'text-indigo-600' },
+                ].map((kpi, i) => (
+                  <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-1 hover:border-slate-200 transition-colors">
+                    <div className="mb-2">{kpi.icon}</div>
                     <p className={`text-xl font-black ${kpi.color}`}>{kpi.value}</p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
                   </div>
@@ -580,15 +593,18 @@ export default function EarningsTab() {
                     {L('Quy trình rút tiền (T+1)', 'Withdrawal Process (T+1)')}
                   </h4>
                   {[
-                    { step: '1', icon: '📝', title: L('Gửi yêu cầu', 'Submit Request'),     desc: L('Điền thông tin và nhấn gửi yêu cầu.', 'Fill in the form and submit.') },
-                    { step: '2', icon: '⚙️',  title: L('Xử lý tự động', 'Auto Processing'),  desc: L('Hệ thống xử lý trong vòng 24 giờ (T+1).', 'System processes within 24 hours (T+1).') },
-                    { step: '3', icon: '✅',  title: L('Tiền về tài khoản', 'Funds Received'), desc: L('Tiền về tài khoản đăng ký trong 1-2 ngày làm việc.', 'Funds arrive in 1-2 business days.') },
+                    { step: '1', icon: <FileText className="w-4 h-4" />, title: L('Gửi yêu cầu', 'Submit Request'),     desc: L('Điền thông tin và nhấn gửi yêu cầu.', 'Fill in the form and submit.') },
+                    { step: '2', icon: <Settings className="w-4 h-4" />,  title: L('Xử lý tự động', 'Auto Processing'),  desc: L('Hệ thống xử lý trong vòng 24 giờ (T+1).', 'System processes within 24 hours (T+1).') },
+                    { step: '3', icon: <CheckCircle2 className="w-4 h-4" />,  title: L('Tiền về tài khoản', 'Funds Received'), desc: L('Tiền về tài khoản đăng ký trong 1-2 ngày làm việc.', 'Funds arrive in 1-2 business days.') },
                   ].map((item) => (
                     <div key={item.step} className="flex gap-3">
                       <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-black text-blue-700 shrink-0">{item.step}</div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">{item.icon} {item.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                      <div className="flex items-start gap-2">
+                        <div className="text-blue-500 mt-0.5">{item.icon}</div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{item.title}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -726,9 +742,9 @@ export default function EarningsTab() {
             ) : (
               <form onSubmit={handleReviewSubmit} className="space-y-4">
                 <div className="space-y-3">
-                  <StarRow label={`🤝 ${t('contracts.cooperation')}`}  value={commRating}    onChange={setCommRating}    />
-                  <StarRow label={`💰 ${t('contracts.payment')}`}       value={payRating}     onChange={setPayRating}     />
-                  <StarRow label={`📋 ${t('contracts.clarity')}`}       value={clarityRating} onChange={setClarityRating} />
+                  <StarRow label={t('contracts.cooperation')}  value={commRating}    onChange={setCommRating}    />
+                  <StarRow label={t('contracts.payment')}       value={payRating}     onChange={setPayRating}     />
+                  <StarRow label={t('contracts.clarity')}       value={clarityRating} onChange={setClarityRating} />
                 </div>
 
                 {/* Avg preview */}

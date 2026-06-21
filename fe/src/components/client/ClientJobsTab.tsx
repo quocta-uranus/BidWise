@@ -10,7 +10,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import CreateJobModal from './CreateJobModal';
 import EditJobModal from './EditJobModal';
 import { toast } from 'sonner';
-import { Edit2, Trash2, Plus, Lock, Unlock, Calendar, DollarSign, Send, Inbox, ExternalLink, Check, FolderOpen } from 'lucide-react';
+import { Edit2, Trash2, Plus, Lock, Unlock, Calendar, DollarSign, Send, Inbox, ExternalLink, Check, FolderOpen, X } from 'lucide-react';
 
 export default function ClientJobsTab() {
   const { bids, simulateClientAcceptBid } = useFreelancer();
@@ -45,52 +45,14 @@ export default function ClientJobsTab() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const jobs = await jobsApi.findMyJobs();
-      console.log('Jobs loaded:', jobs);
-      setJobs(jobs);
+      const data = await jobsApi.findMyJobs();
+      setJobs(data);
       if (selectedJob) {
-        const updatedSelected = jobs.find((j: any) => j.id === selectedJob.id);
+        const updatedSelected = data.find((j: any) => j.id === selectedJob.id);
         if (updatedSelected) setSelectedJob(updatedSelected);
       }
-    } catch {
-      // API unavailable - use mock data
-      const mockJobs = [
-        {
-          id: 'job-1',
-          title: 'Xây dựng Landing Page Next.js cho dự án SaaS',
-          description: 'Chúng tôi cần một lập trình viên frontend dựng giao diện Landing Page chuyên nghiệp.',
-          budget: 800,
-          fixedBudget: 800,
-          budgetFormat: 'FIXED',
-          deadline: '2026-07-01',
-          categoryId: 'frontend',
-          auctionType: 'OPEN_BID',
-          status: 'OPEN',
-          skills: ['React', 'Next.js', 'Tailwind CSS'],
-          createdAt: '2026-06-12',
-          category: { id: 'frontend', name: 'Frontend' },
-          client: { id: 'client-1', fullName: 'SaaSify Inc.', avatarUrl: null },
-          _count: { bids: 4 }
-        },
-        {
-          id: 'job-2',
-          title: 'Phát triển Auth Service bằng NestJS & Redis',
-          description: 'Cần thiết kế module Authentication/Authorization bảo mật cao.',
-          budget: 1200,
-          fixedBudget: 1200,
-          budgetFormat: 'FIXED',
-          deadline: '2026-06-30',
-          categoryId: 'backend',
-          auctionType: 'SEALED_BID',
-          status: 'OPEN',
-          skills: ['NestJS', 'Redis', 'PostgreSQL'],
-          createdAt: '2026-06-11',
-          category: { id: 'backend', name: 'Backend' },
-          client: { id: 'client-2', fullName: 'Fintech Solutions', avatarUrl: null },
-          _count: { bids: 2 }
-        }
-      ];
-      setJobs(mockJobs);
+    } catch (error) {
+      toast.error('Failed to load jobs');
     } finally {
       setLoading(false);
     }
@@ -565,7 +527,7 @@ export default function ClientJobsTab() {
                 </h3>
                 <p className="text-slate-500 text-xs mt-0.5">Bid ID: {selectedBid.id}</p>
               </div>
-              <button onClick={() => setSelectedBid(null)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">✕</button>
+              <button onClick={() => setSelectedBid(null)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button>
             </div>
 
             {/* AHP analysis */}

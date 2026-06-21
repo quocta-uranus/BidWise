@@ -21,7 +21,12 @@ import { SessionModule } from './modules/session/session.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JobsModule } from './modules/jobs/jobs.module';
-import { FreelancerModule } from './modules/freelancer/freelancer.module';
+import { FreelancerProfileModule } from './modules/freelancer-profile/freelancer-profile.module';
+import { RecommendationsModule } from './modules/recommendations/recommendations.module';
+import { SavedJobsModule } from './modules/saved-jobs/saved-jobs.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PreferencesModule } from './modules/preferences/preferences.module';
+import { BidsModule } from './modules/bids/bids.module';
 
 @Module({
   imports: [
@@ -62,7 +67,12 @@ import { FreelancerModule } from './modules/freelancer/freelancer.module';
     UsersModule,
     AdminModule,
     JobsModule,
-    FreelancerModule,
+    FreelancerProfileModule,
+    RecommendationsModule,
+    SavedJobsModule,
+    NotificationsModule,
+    PreferencesModule,
+    BidsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

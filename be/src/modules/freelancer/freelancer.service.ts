@@ -32,9 +32,8 @@ export class FreelancerService {
     let profile = await this.prisma.freelancerProfile.findUnique({
       where: { userId },
       include: {
-        portfolioItems: { orderBy: { createdAt: 'desc' } },
-        certificates: { orderBy: { createdAt: 'desc' } },
-        user: { select: { bio: true, phone: true, fullName: true, email: true } },
+        portfolios: { orderBy: { createdAt: 'desc' } },
+        certifications: { orderBy: { createdAt: 'desc' } },
       },
     });
 
@@ -43,34 +42,40 @@ export class FreelancerService {
       profile = await this.prisma.freelancerProfile.findUnique({
         where: { userId },
         include: {
-          portfolioItems: { orderBy: { createdAt: 'desc' } },
-          certificates: { orderBy: { createdAt: 'desc' } },
-          user: { select: { bio: true, phone: true, fullName: true, email: true } },
+          portfolios: { orderBy: { createdAt: 'desc' } },
+          certifications: { orderBy: { createdAt: 'desc' } },
         },
       });
     }
 
-    return profile;
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { bio: true, phone: true, fullName: true, email: true },
+    });
+
+    return { profile: profile!, user };
   }
 
-  private formatProfile(profile: NonNullable<Awaited<ReturnType<typeof this.getProfileRecord>>>) {
+  private formatProfile(data: NonNullable<Awaited<ReturnType<typeof this.getProfileRecord>>>) {
+    const { profile, user } = data;
+    const userData = user ?? { bio: null, phone: null };
     const completeness = this.completenessService.calculate({
-      user: profile.user,
+      user: userData,
       hourlyRate: profile.hourlyRate ?? 0,
-      portfolioCount: profile.portfolioItems.length,
+      portfolioCount: (profile.portfolios ?? []).length,
       hasCv: !!profile.cvFileName,
-      certificateCount: profile.certificates.length,
-      assessmentCompleted: profile.assessmentCompleted,
+      certificateCount: (profile.certifications ?? []).length,
+      assessmentCompleted: profile.assessmentCompleted ?? false,
     });
 
     return {
-      bio: profile.user.bio ?? '',
-      phone: profile.user.phone ?? '',
+      bio: user?.bio ?? '',
+      phone: user?.phone ?? '',
       hourlyRate: profile.hourlyRate ?? 0,
       experience: profile.experience ?? '',
       skills: profile.skills,
-      available: profile.available,
-      assessmentCompleted: profile.assessmentCompleted,
+      available: profile.available ?? false,
+      assessmentCompleted: profile.assessmentCompleted ?? false,
       assessmentScore: profile.assessmentScore,
       assessmentLevel: profile.assessmentLevel,
       assessmentCompletedAt: profile.assessmentCompletedAt?.toISOString() ?? null,
@@ -82,25 +87,22 @@ export class FreelancerService {
             uploadedAt: profile.cvUploadedAt?.toISOString().split('T')[0] ?? '',
           }
         : null,
-      portfolio: profile.portfolioItems.map((item: any) => ({
+      portfolio: (profile.portfolios ?? []).map((item: any) => ({
         id: item.id,
         title: item.title,
         desc: item.desc,
         link: item.link,
-        linkType: item.linkType,
         fileName: item.fileName,
         fileSize: item.fileSize,
         fileUrl: item.fileUrl,
         createdAt: item.createdAt.toISOString(),
       })),
-      certificates: profile.certificates.map((cert: any) => ({
+      certificates: (profile.certifications ?? []).map((cert: any) => ({
         id: cert.id,
         name: cert.name,
         issuer: cert.issuer,
         date: cert.date,
         verifyLink: cert.verifyLink,
-        imageUrl: cert.imageUrl,
-        imageFileName: cert.imageFileName,
         verified: cert.verified,
         createdAt: cert.createdAt.toISOString(),
       })),
@@ -109,9 +111,9 @@ export class FreelancerService {
   }
 
   async getProfile(userId: string) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
-    return this.formatProfile(profile);
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    return this.formatProfile(data);
   }
 
   async updateProfile(userId: string, dto: UpdateFreelancerProfileDto) {
@@ -150,8 +152,8 @@ export class FreelancerService {
   }
 
   async addPortfolio(userId: string, dto: CreatePortfolioDto, file?: UploadedFilePayload) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
     if (!file && !dto.link?.trim()) {
       throw new BadRequestException('PORTFOLIO_LINK_OR_FILE_REQUIRED');
     }
@@ -161,17 +163,15 @@ export class FreelancerService {
       fileMeta = this.fileStorage.savePortfolioFile(userId, file);
     }
 
-    await this.prisma.portfolioItem.create({
+    await this.prisma.portfolio.create({
       data: {
-        freelancerProfileId: profile.id,
+        freelancerProfileId: data.profile.id,
         title: dto.title,
         desc: dto.desc ?? '',
         link: dto.link ?? '',
-        linkType: dto.linkType ?? (dto.link ? 'other' : null),
-        fileName: fileMeta?.fileName,
-        fileUrl: fileMeta?.fileUrl,
-        fileSize: (fileMeta?.fileSize ?? 0) as number,
-        mimeType: fileMeta?.mimeType,
+        fileName: fileMeta?.fileName ?? null,
+        fileUrl: fileMeta?.fileUrl ?? null,
+        fileSize: fileMeta?.fileSize ?? null,
       },
     });
 
@@ -179,22 +179,22 @@ export class FreelancerService {
   }
 
   async deletePortfolio(userId: string, itemId: string) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
-    const item = await this.prisma.portfolioItem.findFirst({
-      where: { id: itemId, freelancerProfileId: profile.id },
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    const item = await this.prisma.portfolio.findFirst({
+      where: { id: itemId, freelancerProfileId: data.profile.id },
     });
     if (!item) throw new NotFoundException('PORTFOLIO_NOT_FOUND');
 
     this.fileStorage.deleteByUrl(userId, item.fileUrl);
-    await this.prisma.portfolioItem.delete({ where: { id: itemId } });
+    await this.prisma.portfolio.delete({ where: { id: itemId } });
     return this.getProfile(userId);
   }
 
   async uploadCv(userId: string, file: UploadedFilePayload) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
-    this.fileStorage.deleteByUrl(userId, profile.cvFileUrl);
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    this.fileStorage.deleteByUrl(userId, data.profile.cvFileUrl);
 
     const meta = this.fileStorage.saveCvFile(userId, file);
     await this.prisma.freelancerProfile.update({
@@ -202,7 +202,7 @@ export class FreelancerService {
       data: {
         cvFileName: meta.fileName,
         cvFileUrl: meta.fileUrl,
-        cvFileSize: Number(meta.fileSize ?? 0),
+        cvFileSize: meta.fileSize ?? null,
         cvUploadedAt: new Date(),
       },
     });
@@ -211,9 +211,9 @@ export class FreelancerService {
   }
 
   async deleteCv(userId: string) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
-    this.fileStorage.deleteByUrl(userId, profile.cvFileUrl);
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    this.fileStorage.deleteByUrl(userId, data.profile.cvFileUrl);
     await this.prisma.freelancerProfile.update({
       where: { userId },
       data: {
@@ -231,16 +231,15 @@ export class FreelancerService {
     dto: CreateCertificateDto,
     image?: UploadedFilePayload,
   ) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
-    let imageMeta = null;
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
     if (image) {
-      imageMeta = this.fileStorage.saveCertificateImage(userId, image);
+      this.fileStorage.saveCertificateImage(userId, image);
     }
 
-    await this.prisma.certificate.create({
+    await this.prisma.certification.create({
       data: {
-        freelancerProfileId: profile.id,
+        freelancerProfileId: data.profile.id,
         name: dto.name,
         issuer: dto.issuer,
         date: dto.date ?? null,
@@ -252,15 +251,15 @@ export class FreelancerService {
   }
 
   async deleteCertificate(userId: string, certId: string) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
-    const cert = await this.prisma.certificate.findFirst({
-      where: { id: certId, freelancerProfileId: profile.id },
+    const data = await this.getProfileRecord(userId);
+    if (!data) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    const cert = await this.prisma.certification.findFirst({
+      where: { id: certId, freelancerProfileId: data.profile.id },
     });
     if (!cert) throw new NotFoundException('CERTIFICATE_NOT_FOUND');
 
     this.fileStorage.deleteByUrl(userId, cert.verifyLink ?? '');
-    await this.prisma.certificate.delete({ where: { id: certId } });
+    await this.prisma.certification.delete({ where: { id: certId } });
     return this.getProfile(userId);
   }
 
@@ -312,16 +311,16 @@ export class FreelancerService {
   }
 
   async getAssessmentResult(userId: string) {
-    const profile = await this.getProfileRecord(userId);
-    if (!profile || !profile.assessmentCompleted) {
+    const data = await this.getProfileRecord(userId);
+    if (!data || !data.profile.assessmentCompleted) {
       return { completed: false, score: null, level: null };
     }
     return {
       completed: true,
-      score: profile.assessmentScore,
+      score: data.profile.assessmentScore,
       maxScore: ASSESSMENT_QUESTIONS.length,
-      level: profile.assessmentLevel,
-      completedAt: profile.assessmentCompletedAt?.toISOString() ?? null,
+      level: data.profile.assessmentLevel,
+      completedAt: data.profile.assessmentCompletedAt?.toISOString() ?? null,
     };
   }
 

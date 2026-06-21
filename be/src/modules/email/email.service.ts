@@ -1,18 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import { createTransport, Transporter } from 'nodemailer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private resend: Resend;
-  private from: string;
+  private transporter: Transporter;
 
   constructor(private configService: ConfigService) {
-    this.resend = new Resend(this.configService.get<string>('mail.resendApiKey'));
-    this.from = this.configService.get<string>('mail.from') ?? 'BidWise <onboarding@resend.dev>';
+    this.transporter = createTransport({
+      host: this.configService.get<string>('mail.host'),
+      port: this.configService.get<number>('mail.port'),
+      secure: false,
+      auth: {
+        user: this.configService.get<string>('mail.user'),
+        pass: this.configService.get<string>('mail.pass'),
+      },
+    });
   }
 
   private loadTemplate(name: string, vars: Record<string, string>): string {
@@ -43,18 +49,22 @@ export class EmailService {
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
-    const { data, error } = await this.resend.emails.send({
-      from: this.from,
-      to,
-      subject,
-      html,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to send email to ${to}: ${JSON.stringify(error)}`);
+    try {
+      const info = await this.transporter.sendMail({
+        from: this.configService.get<string>('mail.from'),
+        to,
+        subject,
+        html,
+      });
+      this.logger.log(`Email sent to ${to} — messageId: ${info.messageId}`);
+    } catch (error) {
+      this.logger.error(`Failed to send email to ${to}: ${error.message}`);
       throw new Error(`Email send failed: ${error.message}`);
     }
+  }
 
-    this.logger.log(`Email sent to ${to} — id: ${data?.id}`);
+  // Expose send for use by other services (e.g., notifications processor)
+  async sendEmail(to: string, subject: string, html: string): Promise<void> {
+    return this.send(to, subject, html);
   }
 }

@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../token/token.service';
 import { EmailService } from '../email/email.service';
 import { RoleType } from '@prisma/client';
+import { assertNoPortalMix } from '../../common/utils/role-validator';
 
 @Injectable()
 export class AdminService {
@@ -96,7 +97,10 @@ export class AdminService {
 
   async assignRole(userId: string, roleType: RoleType, assignedBy: string): Promise<void> {
     const [user, role] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId } }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { userRoles: { include: { role: true } } },
+      }),
       this.prisma.role.findUnique({ where: { name: roleType } }),
     ]);
 
@@ -107,6 +111,12 @@ export class AdminService {
       where: { userId_roleId: { userId, roleId: role.id } },
     });
     if (existing) throw new BadRequestException('ROLE_ALREADY_ASSIGNED');
+
+    // An account may only belong to one portal. Reject the assignment
+    // if the user already has the opposite portal role.
+    const currentRoles = user.userRoles.map((ur) => ur.role.name);
+    const projected = [...currentRoles, roleType];
+    assertNoPortalMix(projected);
 
     await this.prisma.$transaction([
       this.prisma.userRole.create({

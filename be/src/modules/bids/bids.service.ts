@@ -1,358 +1,239 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomUUID } from 'crypto';
-import { MatchingService } from '../bidding/services/matching.service';
-import { FreelancerProfileService } from '../bidding/services/freelancer-profile.service';
-import { AUCTION_TYPE, BID_STATUS, BidStatus, JOB_STATUS } from '../bidding/constants/bidding.constants';
 import { CreateBidDto, UpdateBidDto } from './dto/bid.dto';
-import type { BidStatus as PrismaBidStatus, JobStatus, AuctionType } from '@prisma/client';
-
-const EDITABLE: BidStatus[] = [BID_STATUS.PENDING, BID_STATUS.SHORTLISTED];
-
-type BidWithJob = {
-  id: string;
-  jobId: string;
-  amount: Prisma.Decimal | number;
-  days: number | null;
-  coverLetter: string | null;
-  fileName: string | null;
-  fileUrl: string | null;
-  matchingScore: number | null;
-  matchBreakdown: Prisma.JsonValue | null;
-  status: PrismaBidStatus;
-  submittedAt: Date;
-  updatedAt: Date;
-  job: {
-    id: string;
-    title: string;
-    description: string;
-    status: JobStatus;
-    auctionType: AuctionType;
-    sealedOpenedAt: Date | null;
-    editDeadlineHours: number;
-    skills: string[];
-    budget: number | null;
-    minBudget: number | null;
-    maxBudget: number | null;
-    fixedBudget: number | null;
-    client: { fullName: string };
-    category: { name: string } | null;
-  };
-};
-
-type JobForMatching = {
-  id: string;
-  status: JobStatus;
-  auctionType: AuctionType;
-  sealedOpenedAt: Date | null;
-  editDeadlineHours: number;
-  skills: string[];
-  budget: number | null;
-};
-
-type BidFormatted = {
-  id: string;
-  jobId: string;
-  jobTitle: string;
-  clientName: string;
-  amount: number;
-  days?: number;
-  coverLetter?: string;
-  fileName?: string;
-  fileUrl?: string;
-  status: BidStatus;
-  matchingScore?: number;
-  matchBreakdown?: Record<string, unknown>;
-  submittedAt: string;
-  updatedAt: string;
-  canEdit: boolean;
-};
+import { BidMatchingService } from './bid-matching.service';
 
 @Injectable()
 export class BidsService {
   constructor(
     private prisma: PrismaService,
-    private matchingService: MatchingService,
-    private freelancerProfileService: FreelancerProfileService,
+    private matchingService: BidMatchingService,
   ) {}
 
-  private formatBid(bid: BidWithJob): BidFormatted {
-    return {
-      id: bid.id,
-      jobId: bid.jobId,
-      jobTitle: bid.job.title,
-      clientName: bid.job.client.fullName,
-      amount: Number(bid.amount),
-      days: bid.days ?? undefined,
-      coverLetter: bid.coverLetter ?? undefined,
-      fileName: bid.fileName ?? undefined,
-      fileUrl: bid.fileUrl ?? undefined,
-      status: bid.status,
-      matchingScore: bid.matchingScore ?? undefined,
-      matchBreakdown: (bid.matchBreakdown as Record<string, unknown> | null) ?? undefined,
-      submittedAt: bid.submittedAt.toISOString().split('T')[0],
-      updatedAt: bid.updatedAt.toISOString(),
-      canEdit: this.canEditBid(
-        {
-          status: bid.status,
-          submittedAt: bid.submittedAt,
-        },
-        {
-          status: bid.job.status,
-          auctionType: bid.job.auctionType,
-          sealedOpenedAt: bid.job.sealedOpenedAt ?? null,
-          editDeadlineHours: bid.job.editDeadlineHours,
-        },
-      ),
-    };
-  }
+  // FL-12: submit a bid
+  async createBid(userId: string, dto: CreateBidDto) {
+    const profile = await this.prisma.freelancerProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
 
-  private canEditBid(
-    bid: { status: PrismaBidStatus; submittedAt: Date },
-    job: { status: JobStatus; auctionType: AuctionType; sealedOpenedAt: Date | null; editDeadlineHours: number },
-  ): boolean {
-    if (bid.status !== BID_STATUS.PENDING) return false;
-    if (job.status !== JOB_STATUS.OPEN) return false;
-    if (job.auctionType === AUCTION_TYPE.SEALED_BID) {
-      if (job.sealedOpenedAt) return false;
-      const deadline = new Date(bid.submittedAt);
-      deadline.setHours(deadline.getHours() + job.editDeadlineHours);
-      if (new Date() > deadline) return false;
-    }
-    return true;
-  }
-
-  async submitBid(freelancerId: string, dto: CreateBidDto) {
-    const profile = await this.freelancerProfileService.getOrCreate(freelancerId);
-    if (!profile.available) throw new BadRequestException('FREELANCER_NOT_AVAILABLE');
-
-    const job = await this.prisma.job.findUnique({
-      where: { id: dto.jobId },
-      include: { client: { select: { fullName: true } } },
+    const job = await this.prisma.job.findFirst({
+      where: { id: dto.jobId, deletedAt: null },
     });
     if (!job) throw new NotFoundException('JOB_NOT_FOUND');
-    if (job.status !== JOB_STATUS.OPEN) throw new BadRequestException('JOB_NOT_OPEN');
-
-    const existing = await this.prisma.bid.findUnique({
-      where: { jobId_freelancerId: { jobId: dto.jobId, freelancerId } },
-    });
-    if (existing && existing.status !== BID_STATUS.WITHDRAWN) {
-      throw new BadRequestException('BID_ALREADY_EXISTS');
+    if (job.status !== 'OPEN') {
+      throw new BadRequestException('JOB_NOT_OPEN');
+    }
+    if (job.deadline && new Date(job.deadline) < new Date()) {
+      throw new BadRequestException('JOB_DEADLINE_PASSED');
     }
 
-    await this.freelancerProfileService.consumeBidToken(freelancerId);
-    const userData = await this.freelancerProfileService.getWithUser(freelancerId);
-    const { score, breakdown } = this.matchingService.calculate(
-      {
-        skills: job.skills,
-        budget: job.budget,
-        minBudget: job.minBudget,
-        maxBudget: job.maxBudget,
-        fixedBudget: job.fixedBudget,
-      },
-      userData?.freelancerProfile ?? null,
-      userData,
-      dto.amount,
-    );
-
-    const now = new Date();
-    const bid = await this.prisma.$transaction(async (tx) => {
-      if (existing?.status === BID_STATUS.WITHDRAWN) {
-        return tx.bid.update({
-          where: { id: existing.id },
-          data: {
-            amount: dto.amount,
-            days: dto.days,
-            coverLetter: dto.coverLetter,
-            fileName: dto.fileName,
-            fileUrl: dto.fileUrl,
-            status: BID_STATUS.PENDING,
-            matchingScore: score,
-            matchBreakdown: breakdown as unknown as Prisma.InputJsonValue,
-            submittedAt: now,
-            updatedAt: now,
-          },
-          include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
-        });
-      }
-      return tx.bid.create({
-        data: {
-          id: randomUUID(),
-          jobId: dto.jobId,
-          freelancerId,
-          amount: dto.amount,
-          deliveryDays: dto.days,
-          proposal: dto.coverLetter,
-          days: dto.days,
-          coverLetter: dto.coverLetter,
-          fileName: dto.fileName,
-          fileUrl: dto.fileUrl,
-          matchingScore: score,
-          matchBreakdown: breakdown as unknown as Prisma.InputJsonValue,
-          submittedAt: now,
-          updatedAt: now,
-        },
-        include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
+    // Bid token check (simple daily limit)
+    const today = new Date().toISOString().slice(0, 10);
+    const limit = 10; // Default token limit
+    if (profile.lastBidDate !== today) {
+      // reset for new day
+      await this.prisma.freelancerProfile.update({
+        where: { id: profile.id },
+        data: { bidTokensUsed: 0, lastBidDate: today, bidTokens: limit },
       });
+      profile.bidTokens = limit;
+      profile.bidTokensUsed = 0;
+    }
+    if (profile.bidTokensUsed >= profile.bidTokens) {
+      throw new ForbiddenException('BID_TOKEN_EXHAUSTED');
+    }
+
+    // Duplicate bid check
+    const existing = await this.prisma.bid.findUnique({
+      where: { jobId_freelancerId: { jobId: dto.jobId, freelancerId: userId } },
+    });
+    if (existing) throw new BadRequestException('BID_ALREADY_SUBMITTED');
+
+    const match = await this.matchingService.computeMatch(userId, job, profile, dto.amount);
+
+    const bid = await this.prisma.$transaction(async (tx) => {
+      const newBid = await tx.bid.create({
+        data: {
+          jobId: dto.jobId,
+          freelancerId: userId,
+          amount: dto.amount,
+          days: dto.deliveryDays,
+          coverLetter: dto.proposal,
+          matchingScore: match.score,
+          matchBreakdown: match.breakdown as any,
+        },
+      });
+      await tx.freelancerProfile.update({
+        where: { id: profile.id },
+        data: { bidTokensUsed: { increment: 1 } },
+      });
+      return newBid;
     });
 
-    const quota = await this.freelancerProfileService.getQuota(freelancerId);
-    return { bid: this.formatBid(bid), quota };
+    return { ...bid, matchBreakdown: match.breakdown, matchingScore: match.score };
   }
 
-  async listMyBids(freelancerId: string, status?: BidStatus) {
-    const bids = await this.prisma.bid.findMany({
-      where: { freelancerId, ...(status ? { status: status as any } : {}) },
-      include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
-      orderBy: { createdAt: 'desc' },
-    });
-    return bids.map((b: BidWithJob) => this.formatBid(b));
-  }
-
-  async getBid(bidId: string, freelancerId: string) {
+  // FL-13: get my match details for a bid
+  async getBidMatch(userId: string, bidId: string) {
     const bid = await this.prisma.bid.findFirst({
-      where: { id: bidId, freelancerId },
-      include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
-    });
-    if (!bid) throw new NotFoundException('BID_NOT_FOUND');
-    return this.formatBid(bid);
-  }
-
-  async updateBid(bidId: string, freelancerId: string, dto: UpdateBidDto) {
-    const bid = await this.prisma.bid.findFirst({
-      where: { id: bidId, freelancerId },
+      where: { id: bidId, freelancerId: userId },
       include: { job: true },
     });
     if (!bid) throw new NotFoundException('BID_NOT_FOUND');
-    if (!this.canEditBid(bid, bid.job)) throw new ForbiddenException('BID_NOT_EDITABLE');
+    return {
+      bidId: bid.id,
+      matchingScore: bid.matchingScore,
+      matchBreakdown: bid.matchBreakdown,
+      job: { id: bid.job.id, title: bid.job.title, skills: bid.job.skills },
+    };
+  }
 
-    const amount = dto.amount ?? Number(bid.amount);
-    const userData = await this.freelancerProfileService.getWithUser(freelancerId);
-    const { score, breakdown } = this.matchingService.calculate(
-      {
-        skills: bid.job.skills,
-        budget: bid.job.budget,
-        minBudget: bid.job.minBudget,
-        maxBudget: bid.job.maxBudget,
-        fixedBudget: bid.job.fixedBudget,
-      },
-      userData?.freelancerProfile ?? null,
-      userData,
-      amount,
-    );
+  // FL-14: edit bid
+  async updateBid(userId: string, bidId: string, dto: UpdateBidDto) {
+    const bid = await this.prisma.bid.findFirst({ where: { id: bidId, freelancerId: userId } });
+    if (!bid) throw new NotFoundException('BID_NOT_FOUND');
+    if (bid.status !== 'PENDING') {
+      throw new ForbiddenException('BID_LOCKED');
+    }
 
     const updated = await this.prisma.bid.update({
       where: { id: bidId },
       data: {
         ...(dto.amount !== undefined && { amount: dto.amount }),
-        ...(dto.days !== undefined && { days: dto.days }),
-        ...(dto.coverLetter !== undefined && { coverLetter: dto.coverLetter }),
-        ...(dto.fileName !== undefined && { fileName: dto.fileName }),
-        ...(dto.fileUrl !== undefined && { fileUrl: dto.fileUrl }),
-        matchingScore: score,
-        matchBreakdown: breakdown as unknown as Prisma.InputJsonValue,
-        updatedAt: new Date(),
+        ...(dto.deliveryDays !== undefined && { days: dto.deliveryDays }),
+        ...(dto.proposal !== undefined && { coverLetter: dto.proposal }),
       },
-      include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
     });
-    return this.formatBid(updated);
+    return updated;
   }
 
-  async withdrawBid(bidId: string, freelancerId: string) {
+  // FL-15: withdraw bid (with light penalty)
+  async withdrawBid(userId: string, bidId: string) {
     const bid = await this.prisma.bid.findFirst({
-      where: { id: bidId, freelancerId },
-      include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
+      where: { id: bidId, freelancerId: userId },
+      include: { job: true },
     });
     if (!bid) throw new NotFoundException('BID_NOT_FOUND');
-    if (!EDITABLE.includes(bid.status as BidStatus)) {
-      throw new BadRequestException('BID_CANNOT_BE_WITHDRAWN');
+    if (bid.status === 'ACCEPTED') {
+      throw new ForbiddenException('CANNOT_WITHDRAW_ACCEPTED');
+    }
+    if (bid.status === 'WITHDRAWN') {
+      return bid;
     }
 
-    const updated = await this.prisma.bid.update({
-      where: { id: bidId },
-      data: { status: BID_STATUS.WITHDRAWN, updatedAt: new Date() },
-      include: { job: { include: { category: true, client: { select: { fullName: true } } } } },
+    const profile = await this.prisma.freelancerProfile.findUnique({ where: { userId } });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.bid.update({
+        where: { id: bidId },
+        data: { status: 'WITHDRAWN' },
+      });
+      if (profile) {
+        await tx.freelancerProfile.update({
+          where: { id: profile.id },
+          data: { bidPenalties: { increment: 1 } },
+        });
+      }
+      return u;
     });
-    await this.freelancerProfileService.recordWithdrawPenalty(freelancerId);
-    return this.formatBid(updated);
+    return result;
   }
 
-  async getStats(freelancerId: string) {
-    const bids = await this.prisma.bid.findMany({
-      where: { freelancerId, status: { not: BID_STATUS.WITHDRAWN } },
-      include: { job: { select: { category: { select: { name: true } } } } },
-    });
+  // FL-16: list bids by status
+  async listMyBids(
+    userId: string,
+    options: { status?: string; page?: number; limit?: number } = {},
+  ) {
+    const { status, page = 1, limit = 20 } = options;
+    const skip = (page - 1) * limit;
+    const where: any = { freelancerId: userId };
+    if (status) where.status = status;
 
-    const totalBids = bids.length;
-    const acceptedBids = bids.filter((b) => b.status === BID_STATUS.ACCEPTED);
-    const winRate = totalBids > 0 ? Math.round((acceptedBids.length / totalBids) * 100) : 0;
-    const avgBidPrice =
-      totalBids > 0 ? Math.round(bids.reduce((s: number, b: any) => s + Number(b.amount), 0) / totalBids) : 0;
-
-    const byCategory: Record<string, { count: number; accepted: number }> = {};
-    for (const bid of bids) {
-      const catName = bid.job.category?.name ?? 'Uncategorized';
-      if (!byCategory[catName]) byCategory[catName] = { count: 0, accepted: 0 };
-      byCategory[catName].count += 1;
-      if (bid.status === BID_STATUS.ACCEPTED) byCategory[catName].accepted += 1;
-    }
-
-    const byStatus = Object.values(BID_STATUS).reduce(
-      (acc, status) => {
-        acc[status] = bids.filter((b) => b.status === status).length;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
+    const [items, total] = await Promise.all([
+      this.prisma.bid.findMany({
+        where,
+        include: {
+          job: { select: { id: true, title: true, status: true, deadline: true, budget: true } },
+        },
+        orderBy: { submittedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.bid.count({ where }),
+    ]);
     return {
-      totalBids,
-      acceptedCount: acceptedBids.length,
-      winRate,
-      avgBidPrice,
-      byStatus,
-      byCategory: Object.entries(byCategory).map(([category, data]) => ({
-        category,
-        bids: data.count,
-        accepted: data.accepted,
-        winRate: data.count > 0 ? Math.round((data.accepted / data.count) * 100) : 0,
-      })),
+      data: items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
     };
   }
 
-  async suggestCoverLetter(freelancerId: string, jobId: string) {
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
-    if (!job) throw new NotFoundException('JOB_NOT_FOUND');
+  // FL-18: dashboard stats
+  async getMyStats(userId: string) {
+    const [byStatus, winRate, total, avgBidAgg] = await Promise.all([
+      this.prisma.bid.groupBy({
+        by: ['status'],
+        where: { freelancerId: userId },
+        _count: { _all: true },
+      }),
+      this.prisma.bid.count({ where: { freelancerId: userId, status: 'ACCEPTED' } }),
+      this.prisma.bid.count({ where: { freelancerId: userId } }),
+      this.prisma.bid.aggregate({
+        where: { freelancerId: userId },
+        _avg: { amount: true },
+      }),
+    ]);
 
-    const userData = await this.freelancerProfileService.getWithUser(freelancerId);
-    const profile = userData?.freelancerProfile;
-    const skills = profile?.skills ?? [];
-    const matched = job.skills.filter((s: string) => skills.map((x: string) => x.toLowerCase()).includes(s.toLowerCase()));
-    const missing = job.skills.filter((s: string) => !matched.includes(s));
-
-    const bullets = [
-      `I am interested in "${job.title}" and can deliver within your timeline.`,
-      matched.length > 0
-        ? `My core strengths: ${matched.join(', ')}.`
-        : `Experience with: ${skills.slice(0, 4).join(', ') || 'relevant technologies'}.`,
-      profile?.assessmentCompleted
-        ? `BidWise assessment completed (${profile.assessmentLevel ?? 'verified'}).`
-        : 'Clear communication and milestone-based delivery.',
-      missing.length > 0 ? `Can ramp up on: ${missing.join(', ')}.` : 'Skills align with the job description.',
-      'Approach: discovery → implementation → testing → handover.',
-    ];
-
-    const template = `Dear Client,\n\n${bullets.map((b) => `• ${b}`).join('\n')}\n\nBest regards,\n${userData?.fullName ?? 'Freelancer'}`;
-    return { bullets, template };
+    return {
+      totalBids: total,
+      wonBids: winRate,
+      winRate: total ? Number((winRate / total).toFixed(4)) : 0,
+      avgBidPrice: avgBidAgg._avg.amount ?? 0,
+      byStatus: byStatus.reduce<Record<string, number>>((acc, r) => {
+        acc[r.status] = r._count._all;
+        return acc;
+      }, {}),
+    };
   }
 
-  async getQuota(freelancerId: string) {
-    return this.freelancerProfileService.getQuota(freelancerId);
+  // FL-17: cover letter suggestions (template-based stub)
+  async suggestCoverLetter(userId: string, jobId: string) {
+    const [profile, job] = await Promise.all([
+      this.prisma.freelancerProfile.findUnique({
+        where: { userId },
+        include: { portfolios: { take: 3, orderBy: { createdAt: 'desc' } } },
+      }),
+      this.prisma.job.findFirst({
+        where: { id: jobId, deletedAt: null },
+      }),
+    ]);
+    if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
+    if (!job) throw new NotFoundException('JOB_NOT_FOUND');
+
+    // job.skills is String[] in DB
+    const matchedSkills = (job.skills ?? [])
+      .filter((s: string) => (profile.skills ?? []).map((x) => x.toLowerCase()).includes(s.toLowerCase()));
+    const portfolioSamples = (profile.portfolios ?? []).slice(0, 3);
+
+    return {
+      greeting: `Chào bạn, tôi là freelancer trên BidWise.`,
+      hook:
+        matchedSkills.length > 0
+          ? `Tôi có kinh nghiệm trực tiếp với ${matchedSkills.slice(0, 3).join(', ')} — rất phù hợp với job "${job.title}".`
+          : `Tôi quan tâm đến job "${job.title}" thuộc danh mục ${job.category}.`,
+      relevantWork:
+        portfolioSamples.length > 0
+          ? `Một số dự án liên quan tôi đã làm:\n${portfolioSamples
+              .map((p, idx) => `  ${idx + 1}. ${p.title}${p.desc ? ` — ${p.desc.slice(0, 80)}` : ''}`)
+              .join('\n')}`
+          : `Tôi sẵn sàng chia sẻ portfolio chi tiết khi nhận phản hồi.`,
+      delivery: `Tôi có thể bàn giao trong thời gian thỏa thuận với chất lượng cao.`,
+      closing: `Trân trọng,\nFreelancer BidWise`,
+      matchedSkills,
+    };
   }
 }

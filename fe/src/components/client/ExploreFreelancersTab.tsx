@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
+import { Award, Download } from 'lucide-react';
 
 interface FreelancerMock {
   id: string;
@@ -166,7 +167,7 @@ export default function ExploreFreelancersTab() {
                 <div className="flex items-center gap-2 py-2 border-y border-slate-50 flex-wrap">
                   <span className="text-[9px] text-slate-400 font-bold uppercase">{language === 'vi' ? 'Bài test kỹ năng:' : 'Assessment test:'}</span>
                   <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 shadow-inner">
-                    🏅 {fl.assessmentScore}/5 ({fl.assessmentLevel})
+                    <Award className="w-3 h-3" /> {fl.assessmentScore}/5 ({fl.assessmentLevel})
                   </span>
                 </div>
 
@@ -192,9 +193,9 @@ export default function ExploreFreelancersTab() {
               <div className="pt-4 border-t border-slate-100 flex gap-2">
                 <button
                   onClick={() => handleDownloadCv(fl.name)}
-                  className="flex-1 h-9 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition-all"
+                  className="flex-1 h-9 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
                 >
-                  📄 {language === 'vi' ? 'Tải CV PDF' : 'Download CV'}
+                  <Download className="w-3.5 h-3.5" /> {language === 'vi' ? 'Tải CV PDF' : 'Download CV'}
                 </button>
                 <button
                   onClick={() => alert(language === 'vi' ? `Đang gửi lời mời nhận thầu đến ${fl.name}...` : `Sending project invitation to ${fl.name}...`)}
