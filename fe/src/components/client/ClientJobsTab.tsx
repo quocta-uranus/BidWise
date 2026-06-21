@@ -1,30 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useFreelancer, Bid } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { getJobTitle } from '@/lib/i18n/demo-content';
 import { jobsApi } from '@/lib/api/jobs.api';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import CreateJobModal from './CreateJobModal';
 import EditJobModal from './EditJobModal';
+import RankedBidsList from './RankedBidsList';
 import { toast } from 'sonner';
-import { Edit2, Trash2, Plus, Lock, Unlock, Calendar, DollarSign, Send, Inbox, ExternalLink, Check, FolderOpen } from 'lucide-react';
+import { Edit2, Trash2, Plus, Lock, Unlock, Calendar, DollarSign, Send, Inbox, FolderOpen, Check } from 'lucide-react';
 
 export default function ClientJobsTab() {
-  const { bids, simulateClientAcceptBid } = useFreelancer();
   const { t, language } = useTranslation();
-  const router = useRouter();
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
-  const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [filterTab, setFilterTab] = useState('ALL');
+
   
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -100,23 +97,8 @@ export default function ClientJobsTab() {
     fetchJobs();
   }, []);
 
-  // Get bids for a specific job
-  const getBidsForJob = (jobId: string) =>
-    bids.filter((b) => b.jobId === jobId && b.status !== 'WITHDRAWN');
-
   const STATUS_TABS = ['ALL', 'DRAFT', 'OPEN', 'CLOSED', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED'];
   const filteredJobs = filterTab === 'ALL' ? jobs : jobs.filter((j) => j.status === filterTab);
-
-  const handleAcceptBid = (bidId: string) => {
-    simulateClientAcceptBid(bidId);
-    setSuccessMsg(
-      language === 'vi'
-        ? 'Đã phê duyệt đề xuất thầu thành công! Hợp đồng mới đã được khởi tạo và số tiền đã được chuyển vào Ký quỹ (Escrow).'
-        : 'Bid accepted! A new contract has been created and funds moved to Escrow.'
-    );
-    setSelectedBid(null);
-    setTimeout(() => setSuccessMsg(''), 4500);
-  };
 
   const executeDelete = async (id: string) => {
     try {
@@ -167,15 +149,6 @@ export default function ClientJobsTab() {
     if (job.budgetFormat === 'FIXED_RANGE') return `$${job.minBudget} - $${job.maxBudget}`;
     return `$${job.fixedBudget || 0}`;
   };
-
-  // Mock freelancer avatars/info keyed by bidId
-  const mockFreelancers: Record<string, { name: string; avatar: string; title: string; rating: string }> = {
-    'bid-1': { name: 'Nguyễn Văn Nam',  avatar: '👨‍💻', title: 'Senior Frontend Engineer', rating: '4.9 ⭐ (42 reviews)' },
-    'bid-2': { name: 'Trần Minh Hoàng', avatar: '⚡',   title: 'Backend Tech Lead',       rating: '4.8 ⭐ (36 reviews)' },
-    'bid-3': { name: 'Lê Thị Hồng',     avatar: '📱',   title: 'React Native Developer',  rating: '4.9 ⭐ (19 reviews)' },
-  };
-  const getFreelancer = (bidId: string) =>
-    mockFreelancers[bidId] ?? { name: 'BidWise Freelancer', avatar: '👤', title: 'Professional Freelancer', rating: '5.0 ⭐ (1 review)' };
 
   const getCategoryColor = (categoryName: string) => {
     const map: Record<string, string> = {
@@ -258,7 +231,7 @@ export default function ClientJobsTab() {
                 return (
                   <div
                     key={job.id}
-                    onClick={() => { setSelectedJob(job); setSelectedBid(null); }}
+                    onClick={() => setSelectedJob(job)}
                     className={`group border rounded-xl px-4 py-3 cursor-pointer transition-all ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50/30 shadow-sm'
@@ -417,115 +390,13 @@ export default function ClientJobsTab() {
                 </div>
               </div>
 
-              {/* Bids section */}
-              <div className="space-y-4">
-                <h4 className="font-extrabold text-sm text-slate-800 uppercase tracking-wider">
-                  {language === 'vi' ? 'Hồ sơ ứng tuyển' : 'Proposals Received'}
-                  <span className="ml-1.5 font-bold text-blue-600 normal-case text-xs">
-                    ({getBidsForJob(selectedJob.id).length})
-                  </span>
-                </h4>
-
-                {getBidsForJob(selectedJob.id).length === 0 ? (
-                  <div className="text-center py-10 text-xs text-slate-400 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50 space-y-2">
-                    <Inbox className="w-8 h-8 mx-auto text-slate-300" />
-                    <div>
-                      <p className="font-semibold">{language === 'vi' ? 'Chưa có đề xuất thầu nào cho dự án này.' : 'No bids received for this project yet.'}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{language === 'vi' ? 'Freelancers sẽ sớm gửi đề xuất sau khi dự án được đăng.' : 'Freelancers will start submitting proposals shortly.'}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {getBidsForJob(selectedJob.id).map((bid) => {
-                      const fl = getFreelancer(bid.id);
-                      const isAccepted = bid.status === 'ACCEPTED';
-                      const scoreColor =
-                        bid.matchingScore >= 75 ? 'text-green-600 bg-green-50 border-green-100'
-                        : bid.matchingScore >= 50 ? 'text-amber-600 bg-amber-50 border-amber-100'
-                        : 'text-slate-500 bg-slate-50 border-slate-200';
-
-                      return (
-                        <div
-                          key={bid.id}
-                          className={`border rounded-xl p-4 transition-all ${
-                            isAccepted ? 'border-green-400 bg-green-50/10' : 'border-slate-150 hover:border-slate-200'
-                          }`}
-                        >
-                          <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
-                            {/* Freelancer info */}
-                            <div className="flex gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-slate-100 to-slate-200 border border-slate-200 flex items-center justify-center text-xl shrink-0">
-                                {fl.avatar}
-                              </div>
-                              <div>
-                                <h5 className="font-bold text-slate-900 text-sm">{fl.name}</h5>
-                                <p className="text-[10px] text-slate-400 font-semibold">{fl.title}</p>
-                                <p className="text-[9px] text-amber-500 font-semibold">{fl.rating}</p>
-                              </div>
-                            </div>
-
-                            {/* AHP Score */}
-                            <div className="text-right shrink-0">
-                              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">AHP MATCH</p>
-                              <span className={`inline-block font-black text-xs px-2 py-0.5 rounded border mt-0.5 ${scoreColor}`}>
-                                {bid.matchingScore}%
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Bid details */}
-                          <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 border border-slate-100 rounded-lg p-2.5 my-3">
-                            <div>
-                              <span className="text-slate-400">{language === 'vi' ? 'Giá chào thầu' : 'Proposed'}</span>
-                              <p className="font-bold text-slate-800 mt-0.5">${bid.amount.toLocaleString()} USD</p>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">{language === 'vi' ? 'Thời gian' : 'Delivery'}</span>
-                              <p className="font-bold text-slate-800 mt-0.5">{bid.days} {t('common.days')}</p>
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-slate-600 italic line-clamp-2">"{bid.coverLetter}"</p>
-
-                          {/* Actions */}
-                          <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100">
-                            <button
-                              onClick={() => setSelectedBid(bid)}
-                              className="text-xs text-blue-600 font-bold hover:underline"
-                            >
-                              <span className="flex items-center gap-1">
-                                {language === 'vi' ? 'Xem chi tiết đề xuất' : 'View full proposal'}
-                                <ExternalLink className="w-3 h-3" />
-                              </span>
-                            </button>
-
-                            {!isAccepted && bid.status === 'PENDING' ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleAcceptBid(bid.id)}
-                                  className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                  {language === 'vi' ? 'Phê duyệt' : 'Accept'}
-                                </button>
-                                <button
-                                  onClick={() => alert(language === 'vi' ? 'Đã từ chối đề xuất.' : 'Proposal rejected.')}
-                                  className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold rounded-lg transition-colors"
-                                >
-                                  {language === 'vi' ? 'Từ chối' : 'Reject'}
-                                </button>
-                              </div>
-                            ) : isAccepted ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-green-700 font-bold bg-green-50 px-2.5 py-1 rounded-lg">
-                                ✓ {language === 'vi' ? 'Đã chọn' : 'Accepted'}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              {/* Bids section — AHP-TOPSIS ranked */}
+              <div>
+                <RankedBidsList
+                  jobId={selectedJob.id}
+                  jobTitle={getJobTitle(selectedJob.id, language, selectedJob.title)}
+                  onBidAccepted={fetchJobs}
+                />
               </div>
             </div>
           ) : (
@@ -553,79 +424,6 @@ export default function ClientJobsTab() {
           )}
         </div>
       </div>
-
-      {/* ── BID DETAIL MODAL ─────────────────────────────────── */}
-      {selectedBid && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-extrabold text-lg text-slate-900">
-                  {language === 'vi' ? 'Chi tiết Đề xuất Đấu thầu' : 'Proposal Details'}
-                </h3>
-                <p className="text-slate-500 text-xs mt-0.5">Bid ID: {selectedBid.id}</p>
-              </div>
-              <button onClick={() => setSelectedBid(null)} className="text-slate-400 hover:text-slate-700 text-xl font-bold">✕</button>
-            </div>
-
-            {/* AHP analysis */}
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-150 rounded-2xl p-4 space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-slate-700">Điểm AHP-TOPSIS</span>
-                <span className="font-black text-blue-600 text-sm">{selectedBid.matchingScore}/100</span>
-              </div>
-              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" style={{ width: `${selectedBid.matchingScore}%` }} />
-              </div>
-              <div className="space-y-1 pt-2 border-t border-slate-200/50 text-[11px] text-slate-500 leading-relaxed">
-                <p className="font-bold text-slate-700 text-xs">💡 {language === 'vi' ? 'Phân tích từ hệ thống:' : 'System AHP analysis:'}</p>
-                <ul className="list-disc pl-4 space-y-0.5">
-                  <li><strong>{language === 'vi' ? 'Kỹ năng:' : 'Skills:'}</strong> {language === 'vi' ? 'Freelancer đáp ứng yêu cầu kỹ năng (+50%)' : 'Freelancer meets skill requirements (+50%)'}</li>
-                  <li><strong>{language === 'vi' ? 'Ngân sách:' : 'Budget:'}</strong> {language === 'vi' ? 'Giá thầu phù hợp ngân sách dự án (+30%)' : 'Bid amount fits project budget (+30%)'}</li>
-                  <li><strong>{language === 'vi' ? 'Tín nhiệm:' : 'Trust:'}</strong> {language === 'vi' ? 'Đã qua kiểm định Skill Assessment (+20%)' : 'Passed BidWise Skill Assessment (+20%)'}</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Summary grid */}
-            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-              <div>
-                <span className="text-slate-400">{language === 'vi' ? 'Giá đề xuất' : 'Proposed bid'}</span>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">${selectedBid.amount.toLocaleString()} USD</p>
-              </div>
-              <div>
-                <span className="text-slate-400">{language === 'vi' ? 'Tiến độ cam kết' : 'Committed delivery'}</span>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">{selectedBid.days} {t('common.days')}</p>
-              </div>
-            </div>
-
-            {/* Cover letter */}
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">{t('bids.coverLetterTitle')}</h4>
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-sans max-h-48 overflow-y-auto">
-                {selectedBid.coverLetter}
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex gap-2">
-              <button
-                onClick={() => setSelectedBid(null)}
-                className="flex-1 h-10 border border-slate-200 hover:bg-slate-50 rounded-xl font-semibold text-slate-700 text-sm transition-colors"
-              >
-                {t('common.close')}
-              </button>
-              {selectedBid.status === 'PENDING' && (
-                <button
-                  onClick={() => handleAcceptBid(selectedBid.id)}
-                  className="flex-1 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-colors"
-                >
-                  ✓ {language === 'vi' ? 'Phê duyệt thầu' : 'Accept Bid'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}

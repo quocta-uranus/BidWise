@@ -19,6 +19,7 @@ import BidsTab from '@/components/freelancer/BidsTab';
 import ContractsTab from '@/components/freelancer/ContractsTab';
 import EarningsTab from '@/components/freelancer/EarningsTab';
 import ClientJobsTab from '@/components/client/ClientJobsTab';
+import ClientContractsTab from '@/components/client/ClientContractsTab';
 import CreateJobModal from '@/components/client/CreateJobModal';
 
 // Client subcomponents
@@ -733,7 +734,8 @@ export default function DashboardPage() {
             {activeTab === 'freelancers' && activeRole === 'CLIENT' && <ExploreFreelancersTab />}
 
             {/* Shared Tabs */}
-            {activeTab === 'contracts' && <ContractsTab />}
+            {activeTab === 'contracts' && activeRole === 'FREELANCER' && <ContractsTab />}
+            {activeTab === 'contracts' && activeRole === 'CLIENT' && <ClientContractsTab />}
             {activeTab === 'wallet' && <EarningsTab />}
           </div>
         </main>
