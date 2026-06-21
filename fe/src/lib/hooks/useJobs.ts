@@ -81,7 +81,6 @@ export const useJobs = create<JobsStore>()(
       filters: {
         sortBy: 'createdAt',
         sortOrder: 'desc',
-        limit: 10,
       },
       pagination: {
         page: 1,
@@ -119,7 +118,6 @@ export const useJobs = create<JobsStore>()(
           filters: {
             sortBy: 'createdAt',
             sortOrder: 'desc',
-            limit: 10,
           },
           pagination: { ...get().pagination, page: 1 },
         }),

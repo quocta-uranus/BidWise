@@ -30,7 +30,7 @@ export interface FreelancerProfile {
   experience: string;
   skills: string[];
   portfolio: PortfolioItem[];
-  cv: { fileName: string; fileSize: string; uploadedAt: string } | null;
+  cv: { fileName: string; fileSize: string | number; uploadedAt: string; fileUrl?: string } | null;
   certificates: Certificate[];
   available: boolean;
   assessmentCompleted: boolean;
@@ -884,7 +884,17 @@ export const useFreelancer = create<FreelancerStore>()(
       }
     }),
     {
-      name: 'bidwise-freelancer-store'
+      name: 'bidwise-freelancer-store',
+      partialize: (state) => ({
+        profile: state.profile,
+        bidTokens: state.bidTokens,
+        bidTokensUsed: state.bidTokensUsed,
+        lastBidDate: state.lastBidDate,
+        bidPenalties: state.bidPenalties,
+        withdrawPenalties: state.withdrawPenalties,
+        jobAlerts: state.jobAlerts,
+        bookmarks: state.bookmarks,
+      }),
     }
   )
 );

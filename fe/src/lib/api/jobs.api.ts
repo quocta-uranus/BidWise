@@ -30,6 +30,19 @@ export interface JobResponse {
   matchScore?: number;
   skillMatch?: number;
   matchedSkills?: string[];
+  ahpWeight?: {
+    id: string;
+    jobId: string;
+    priceWeight: number;
+    skillWeight: number;
+    experienceWeight: number;
+    ratingWeight: number;
+    speedWeight: number;
+    deadlineWeight: number;
+    portfolioWeight: number;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
 }
 
 export interface PaginationMeta {
@@ -79,6 +92,20 @@ export interface JobAlertResponse {
 export interface JobAlertUpdateParams {
   enabled: boolean;
   frequency?: 'daily' | 'instant';
+}
+
+export interface AhpWeight {
+  priceWeight: number;
+  skillWeight: number;
+  experienceWeight: number;
+  ratingWeight: number;
+  speedWeight: number;
+  deadlineWeight: number;
+  portfolioWeight: number;
+}
+
+export function mapApiJobToJob(j: JobResponse) {
+  return j;
 }
 
 // Backend wraps ALL responses in { success, data, timestamp } via TransformResponseInterceptor
@@ -151,10 +178,24 @@ export async function getJob(id: string) {
 }
 
 // Get client's own posted jobs
-// Backend returns array directly (wrapped in { success, data, timestamp })
 export async function findMyJobs(): Promise<JobResponse[]> {
-  const response = await api.get<{ success: boolean; data: JobResponse[]; timestamp: string }>('/jobs/my-jobs');
-  return response.data.data;
+  const response = await api.get<{ success: boolean; data: JobResponse[] | { jobs: JobResponse[] }; timestamp: string }>('/jobs/my-jobs');
+  const data = response.data.data;
+  return Array.isArray(data) ? data : data.jobs;
+}
+
+// Get a single job by id
+export async function findOne(id: string): Promise<JobResponse> {
+  return getJob(id);
+}
+
+// Toggle bookmark (add if not bookmarked, remove if bookmarked)
+export async function toggleBookmark(jobId: string): Promise<BookmarkResponse> {
+  const status = await checkBookmark(jobId);
+  if (status.isBookmarked) {
+    return removeBookmark(jobId);
+  }
+  return addBookmark(jobId);
 }
 
 // Create a new job
@@ -209,11 +250,14 @@ export const jobsApi = {
   addBookmark,
   removeBookmark,
   checkBookmark,
+  toggleBookmark,
   getJobAlert,
   updateJobAlert,
   toggleJobAlert,
   getJob,
+  findOne,
   findMyJobs,
+  list: (params?: JobSearchParams) => getJobs(params ?? {}),
   create: createJob,
   update: updateJob,
   remove: removeJob,

@@ -96,6 +96,50 @@ npm install
 
 ---
 
+## Sau khi git pull (đồng bộ DB với team)
+
+Mỗi khi pull code từ teammate về, **bắt buộc chạy các lệnh sau** để đồng bộ database:
+
+```bash
+cd be
+
+# 1. Apply tất cả migration mới (thêm bảng/cột mà teammate đã tạo)
+npx prisma migrate deploy
+
+# 2. Regenerate Prisma Client cho khớp với schema mới
+npx prisma generate
+```
+
+> **Tại sao cần làm vậy?** Git chỉ sync code — database của mỗi người chạy local riêng. Khi teammate sửa `schema.prisma` và tạo migration, bạn pull về chỉ có file migration, chưa có thay đổi trong DB của bạn. `migrate deploy` là lệnh apply các file đó vào DB local.
+
+### Nếu gặp lỗi `The column X does not exist`
+
+Đây là dấu hiệu chưa chạy migrate sau khi pull. Chạy 2 lệnh trên là fix.
+
+---
+
+## Quy trình khi sửa schema.prisma (cho người thay đổi)
+
+Nếu bạn cần thêm bảng/cột mới vào `prisma/schema.prisma`, **phải làm đủ 3 bước** trước khi push:
+
+```bash
+cd be
+
+# 1. Tạo file migration (đặt tên mô tả rõ thay đổi)
+npx prisma migrate dev --name add_ten_bang_hoac_column
+
+# 2. Kiểm tra file migration đã được tạo
+git status   # phải thấy file mới trong prisma/migrations/
+
+# 3. Commit CẢ HAI file cùng nhau
+git add prisma/schema.prisma prisma/migrations/
+git commit -m "feat: add <mô tả thay đổi>"
+```
+
+> **Không được** chỉ commit `schema.prisma` mà không có file migration đi kèm — teammate pull về sẽ bị lỗi DB như trên.
+
+---
+
 ## Mỗi ngày khi làm việc
 
 ### Bước 1 — Mở Docker Desktop
@@ -260,6 +304,17 @@ npm run start
 ---
 
 ## Troubleshooting
+
+### Lỗi `The column X does not exist` hoặc `Invalid prisma.xxx.create() invocation`
+
+Nguyên nhân: vừa pull code về nhưng chưa apply migration mới của teammate.
+
+```bash
+cd be
+npx prisma migrate deploy
+npx prisma generate
+# Sau đó restart backend
+```
 
 ### Lỗi `port 3001 already in use`
 
