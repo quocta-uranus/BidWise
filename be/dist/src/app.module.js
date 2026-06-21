@@ -30,7 +30,12 @@ const session_module_1 = require("./modules/session/session.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const roles_guard_1 = require("./common/guards/roles.guard");
 const jobs_module_1 = require("./modules/jobs/jobs.module");
-const freelancer_module_1 = require("./modules/freelancer/freelancer.module");
+const freelancer_profile_module_1 = require("./modules/freelancer-profile/freelancer-profile.module");
+const recommendations_module_1 = require("./modules/recommendations/recommendations.module");
+const saved_jobs_module_1 = require("./modules/saved-jobs/saved-jobs.module");
+const notifications_module_1 = require("./modules/notifications/notifications.module");
+const preferences_module_1 = require("./modules/preferences/preferences.module");
+const bids_module_1 = require("./modules/bids/bids.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -73,7 +78,12 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             admin_module_1.AdminModule,
             jobs_module_1.JobsModule,
-            freelancer_module_1.FreelancerModule,
+            freelancer_profile_module_1.FreelancerProfileModule,
+            recommendations_module_1.RecommendationsModule,
+            saved_jobs_module_1.SavedJobsModule,
+            notifications_module_1.NotificationsModule,
+            preferences_module_1.PreferencesModule,
+            bids_module_1.BidsModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },

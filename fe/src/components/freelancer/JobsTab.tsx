@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useFreelancer, Job } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { localizeJob, buildCoverLetter, defaultBio } from '@/lib/i18n/demo-content';
+import { X } from 'lucide-react';
 
 export default function JobsTab() {
   const { jobs, bids, profile, bookmarks, toggleBookmark, submitBid, jobAlerts, toggleJobAlerts, useBidToken, bidTokens, bidTokensUsed, lastBidDate } = useFreelancer();
@@ -325,9 +326,9 @@ export default function JobsTab() {
           {deadlineBefore && (
             <button
               onClick={() => setDeadlineBefore('')}
-              className="text-[10px] text-slate-400 hover:text-red-500 font-semibold"
+              className="text-[10px] text-slate-400 hover:text-red-500 font-semibold flex items-center gap-0.5"
             >
-              × Xóa
+              <X className="w-3 h-3" /> Xóa
             </button>
           )}
         </div>
@@ -551,9 +552,9 @@ export default function JobsTab() {
                 </div>
                 <button
                   onClick={() => setSelectedJob(null)}
-                  className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
                 >
-                  ✕
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 

@@ -21,6 +21,7 @@ import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AccessTokenPayload } from '../../common/types/jwt-payload.type';
+import { assertNoPortalMix } from '../../common/utils/role-validator';
 
 const BCRYPT_ROUNDS = 12;
 const FAILED_LOGIN_LOCK_THRESHOLD = 10;
@@ -350,6 +351,10 @@ export class AuthService {
     userAgent?: string,
   ) {
     const roles = user.userRoles.map((ur) => ur.role.name);
+    // Each account must belong to exactly one portal. If the data
+    // is inconsistent, refuse to issue a token — this prevents the
+    // "Freelancer A can see Client B data" cross-portal leak.
+    assertNoPortalMix(roles);
     const session = await this.sessionService.create({
       userId: user.id,
       ipAddress,

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useFreelancer, Bid } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { getJobTitle } from '@/lib/i18n/demo-content';
+import { X } from 'lucide-react';
 
 export default function BidsTab() {
   const { bids, editBid, cancelBid, simulateClientAcceptBid, bidPenalties } = useFreelancer();
@@ -303,8 +304,8 @@ export default function BidsTab() {
                 <h3 className="font-extrabold text-lg text-slate-900">{t('bids.bidDetail')}</h3>
                 <p className="text-slate-500 text-xs mt-0.5">{t('bids.bidId', { id: selectedBid.id })}</p>
               </div>
-              <button onClick={() => setSelectedBid(null)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">
-                ✕
+              <button onClick={() => setSelectedBid(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+                <X className="w-5 h-5" />
               </button>
             </div>
 

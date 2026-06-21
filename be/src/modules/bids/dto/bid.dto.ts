@@ -1,62 +1,39 @@
-import { IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateBidDto {
   @IsString()
   jobId: string;
 
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(1)
+  @IsNumber()
+  @Min(0)
   amount: number;
 
   @IsInt()
   @Min(1)
-  days: number;
+  deliveryDays: number;
 
   @IsString()
-  @MinLength(20)
   @MaxLength(5000)
-  coverLetter: string;
+  proposal: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  fileName?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2048)
-  fileUrl?: string;
+  @IsString({ each: true })
+  attachments?: string[];
 }
 
 export class UpdateBidDto {
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(1)
+  @IsNumber()
+  @Min(0)
   amount?: number;
 
   @IsOptional()
   @IsInt()
   @Min(1)
-  days?: number;
+  deliveryDays?: number;
 
   @IsOptional()
   @IsString()
-  @MinLength(20)
   @MaxLength(5000)
-  coverLetter?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  fileName?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2048)
-  fileUrl?: string;
-}
-
-export class CoverLetterSuggestDto {
-  @IsString()
-  jobId: string;
+  proposal?: string;
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { authApi, type AuthUser } from '@/lib/api/auth.api';
@@ -19,7 +19,20 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ portal, registerHref }: LoginFormProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-slate-500 text-sm py-8 text-center">Đang tải...</div>
+      }
+    >
+      <LoginFormInner portal={portal} registerHref={registerHref} />
+    </Suspense>
+  );
+}
+
+function LoginFormInner({ portal, registerHref }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const meta = portalLabels[portal];
@@ -31,16 +44,26 @@ export default function LoginForm({ portal, registerHref }: LoginFormProps) {
   const [twoFactorToken, setTwoFactorToken] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
 
+  useEffect(() => {
+    clearAuth();
+  }, [clearAuth]);
+
+  function getRedirectTarget(): string {
+    const r = searchParams.get('redirect');
+    if (r && r.startsWith('/')) return r;
+    return getPortalRedirect(portal);
+  }
+
   function redirectAfterAuth(user: AuthUser) {
     if (!userHasPortalAccess(user, portal)) {
       clearAuth();
       const correctPortal = getPrimaryPortal(user);
       setError(
-        `${meta.wrongRole} Hãy đăng nhập tại cổng ${portalLabels[correctPortal].title.replace('Đăng nhập ', '')}.`
+        `${meta.wrongRole} Hãy đăng nhập tại cổng ${portalLabels[correctPortal].title.replace('Đăng nhập ', '')}.`,
       );
       return;
     }
-    router.push(getPortalRedirect(portal));
+    router.replace(getRedirectTarget());
   }
 
   async function handleSubmit(e: React.FormEvent) {

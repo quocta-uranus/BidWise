@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { AuthUser, authApi } from '../api/auth.api';
 import { setAccessToken } from '../api/client';
+import { clearQueryCache } from '../api/query-client';
 
 interface AuthState {
   user: AuthUser | null;
@@ -24,16 +25,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
 
   setAuth: (user, accessToken) => {
+    // Always wipe stale data from the previous account before
+    // installing the new one — prevents cross-account data leak.
+    clearQueryCache();
     setAccessToken(accessToken);
     set({ user, isAuthenticated: true, isLoading: false });
   },
 
   clearAuth: () => {
     setAccessToken(null);
+    clearQueryCache();
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 
-  // Gọi khi app khởi động — dùng RT từ cookie để lấy AT mới
+  // Called once on app boot. Uses the httpOnly refresh token cookie
+  // to mint a fresh access token and fetch the current user.
   loadSession: async () => {
     if (loadSessionPromise) return loadSessionPromise;
     loadSessionPromise = (async () => {
@@ -42,8 +48,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const newAt = refreshRes.data.data.accessToken;
         setAccessToken(newAt);
         const meRes = await authApi.getMe();
-        set({ user: meRes.data.data, isAuthenticated: true, isLoading: false });
+        const user = meRes.data.data;
+        // Detect account change: if a different user is logged in,
+        // discard any cached data from the previous session first.
+        const prev = get().user;
+        if (prev && prev.id !== user.id) {
+          clearQueryCache();
+        }
+        set({ user, isAuthenticated: true, isLoading: false });
       } catch {
+        clearQueryCache();
         set({ user: null, isAuthenticated: false, isLoading: false });
       } finally {
         loadSessionPromise = null;
@@ -57,15 +71,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await authApi.logout(logoutAll);
     } finally {
       get().clearAuth();
-      // Clear React Query cache when logging out
-      if (typeof window !== 'undefined') {
-        // Clear Zustand persist stores (freelancer & client demo data)
-        try {
-          localStorage.removeItem('bidwise-freelancer-store');
-          localStorage.removeItem('bidwise-client-store');
-          localStorage.removeItem('bidwise-admin-store');
-        } catch {}
-      }
     }
   },
 
@@ -75,4 +80,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }));
   },
 }));
-
