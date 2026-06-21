@@ -85,12 +85,16 @@ const transactionTemplates = {
     milestoneApproved: 'Nghiệm thu cột mốc: {milestone} (Hợp đồng: {jobTitle})',
     withdraw: 'Yêu cầu rút tiền về {method} ({details})',
     escrow: 'Ký quỹ hợp đồng: {jobTitle}',
+    deposit: 'Nạp tiền vào ví qua {gateway}',
+    refund: 'Hoàn trả ký quỹ hợp đồng: {jobTitle}',
   },
   en: {
     initBalance: 'System initial balance (Demo)',
     milestoneApproved: 'Milestone approved: {milestone} (Contract: {jobTitle})',
     withdraw: 'Withdrawal request to {method} ({details})',
     escrow: 'Contract escrow: {jobTitle}',
+    deposit: 'Deposited funds via {gateway}',
+    refund: 'Refunded contract escrow: {jobTitle}',
   },
 } as const;
 
@@ -235,7 +239,11 @@ export function localizeAssessmentLevel(level: string | undefined, lang: Languag
 
 export function localizeTransaction(tx: Transaction, lang: Language): string {
   if (tx.descKey) {
-    const template = transactionTemplates[lang][tx.descKey];
+    const templates = transactionTemplates[lang] as Record<string, string>;
+    const template = templates[tx.descKey];
+    if (!template) {
+      return tx.description;
+    }
     const params: Record<string, string> = { ...(tx.descParams ?? {}) };
     if (params.jobId && !params.jobTitle) {
       params.jobTitle = getJobTitle(params.jobId, lang, params.jobTitle ?? '');

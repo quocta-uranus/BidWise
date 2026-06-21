@@ -65,18 +65,19 @@ export default function ContractsTab() {
   const [clientReviewSuccess, setClientReviewSuccess] = useState(false);
 
   // Action handlers
-  const handleSignContract = (cId: string) => {
-    signContract(cId);
+  const handleSignContract = async (cId: string) => {
+    await signContract(cId);
     alert(t('contracts.signAlert'));
 
     // Sync local selected contract state
-    if (selectedContract?.id === cId) {
-      setSelectedContract({ ...selectedContract, status: 'ACTIVE' });
+    const currentC = useFreelancer.getState().contracts.find((c) => c.id === cId);
+    if (currentC) {
+      setSelectedContract(currentC);
     }
   };
 
-  const handleProgressSliderChange = (cId: string, mId: string, value: number) => {
-    updateMilestoneProgress(cId, mId, value);
+  const handleProgressSliderChange = async (cId: string, mId: string, value: number) => {
+    await updateMilestoneProgress(cId, mId, value);
 
     // Sync local selected contract state
     if (selectedContract?.id === cId) {
@@ -95,33 +96,23 @@ export default function ContractsTab() {
     setFileNote('');
   };
 
-  const handleSubmitDeliverable = (e: React.FormEvent) => {
+  const handleSubmitDeliverable = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedContract || !submittingMilestone || !fileName) return;
 
-    submitMilestoneDeliverable(selectedContract.id, submittingMilestone.id, fileName, fileNote);
+    await submitMilestoneDeliverable(selectedContract.id, submittingMilestone.id, fileName, fileNote);
 
     // Sync local selected contract state
-    setSelectedContract({
-      ...selectedContract,
-      milestones: selectedContract.milestones.map((m) =>
-        m.id === submittingMilestone.id
-          ? {
-              ...m,
-              progress: 100,
-              status: 'SUBMITTED' as const,
-              deliverable: fileName,
-              deliverableDesc: fileNote
-            }
-          : m
-      )
-    });
+    const currentC = useFreelancer.getState().contracts.find((c) => c.id === selectedContract.id);
+    if (currentC) {
+      setSelectedContract(currentC);
+    }
 
     setSubmittingMilestone(null);
   };
 
-  const handleClientApproveMilestone = (cId: string, mId: string) => {
-    clientApproveMilestone(cId, mId);
+  const handleClientApproveMilestone = async (cId: string, mId: string) => {
+    await clientApproveMilestone(cId, mId);
 
     // Sync local selected contract state
     const currentC = useFreelancer.getState().contracts.find((c) => c.id === cId);
@@ -140,8 +131,8 @@ export default function ContractsTab() {
     }
   };
 
-  const handleRequestRefund = (cId: string) => {
-    const res = requestRefund(cId);
+  const handleRequestRefund = async (cId: string) => {
+    const res = await requestRefund(cId);
     if (res.success) {
       alert(t('contracts.refundSuccess'));
       setSelectedContract(null);
@@ -150,11 +141,11 @@ export default function ContractsTab() {
     }
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewContractId) return;
 
-    reviewClient(reviewContractId);
+    await reviewClient(reviewContractId);
     setReviewSuccess(true);
     setTimeout(() => {
       setReviewSuccess(false);

@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFreelancer, Bid } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { getJobTitle } from '@/lib/i18n/demo-content';
 
 export default function BidsTab() {
-  const { bids, editBid, cancelBid, simulateClientAcceptBid, bidPenalties } = useFreelancer();
+  const { bids, editBid, cancelBid, simulateClientAcceptBid, bidPenalties, fetchMyBids } = useFreelancer();
+
+  useEffect(() => {
+    fetchMyBids();
+  }, [fetchMyBids]);
   const { t, language } = useTranslation();
 
   // Status filter
@@ -257,8 +261,8 @@ export default function BidsTab() {
                       <>
                         {/* Demo Trigger: Client Accepts */}
                         <button
-                          onClick={() => {
-                            const res = simulateClientAcceptBid(bid.id);
+                          onClick={async () => {
+                            const res = await simulateClientAcceptBid(bid.id);
                             if (res.success) {
                               alert(t('bids.demoAcceptAlert', { client: bid.clientName }));
                             } else {

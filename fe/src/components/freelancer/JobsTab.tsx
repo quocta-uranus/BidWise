@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFreelancer, Job } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { localizeJob, buildCoverLetter, defaultBio } from '@/lib/i18n/demo-content';
 
 export default function JobsTab() {
-  const { jobs, bids, profile, bookmarks, toggleBookmark, submitBid, jobAlerts, toggleJobAlerts, useBidToken, bidTokens, bidTokensUsed, lastBidDate } = useFreelancer();
+  const { jobs, bids, profile, bookmarks, toggleBookmark, submitBid, jobAlerts, toggleJobAlerts, useBidToken, bidTokens, bidTokensUsed, lastBidDate, fetchJobs } = useFreelancer();
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
   const { t, language } = useTranslation();
 
   // Compute real tokens remaining (daily reset)

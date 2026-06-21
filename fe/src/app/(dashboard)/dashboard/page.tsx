@@ -34,7 +34,19 @@ const roleColors: Record<string, string> = {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading, logout } = useAuthStore();
-  const { profile, jobs, bids, contracts, wallet, setAvailability } = useFreelancer();
+  const {
+    profile,
+    jobs,
+    bids,
+    contracts,
+    wallet,
+    setAvailability,
+    fetchWallet,
+    fetchTransactions,
+    fetchContracts,
+    fetchJobs,
+    fetchMyBids,
+  } = useFreelancer();
   const { bidTokens, bidTokensUsed, lastBidDate } = useFreelancer();
   const { t, language } = useTranslation();
 
@@ -57,6 +69,17 @@ export default function DashboardPage() {
       jobsApi.findMyJobs().then(setClientJobs).catch(() => {});
     }
   }, [activeRole]);
+
+  // Sync wallet, transactions, contracts, jobs and bids from database
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWallet();
+      fetchTransactions();
+      fetchContracts();
+      fetchJobs();
+      fetchMyBids();
+    }
+  }, [isAuthenticated, activeRole, fetchWallet, fetchTransactions, fetchContracts, fetchJobs, fetchMyBids]);
 
   // Sync tab value when role changes to avoid non-existent tab
   useEffect(() => {

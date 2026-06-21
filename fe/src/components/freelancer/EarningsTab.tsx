@@ -162,7 +162,7 @@ export default function EarningsTab() {
   ];
 
   /* ── withdraw handler ── */
-  const handleWithdrawSubmit = (e: React.FormEvent) => {
+  const handleWithdrawSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setWdError('');
     setWdSuccess(false);
@@ -194,7 +194,7 @@ export default function EarningsTab() {
       details = `PayPal: ${paypalEmail}`;
     }
 
-    const res = requestWithdrawal(amtNum, method.toUpperCase(), details);
+    const res = await requestWithdrawal(amtNum, method.toUpperCase(), details);
     if (!res.success) {
       setWdError(res.error ?? t('earnings.errWithdrawFailed'));
       return;
@@ -211,7 +211,7 @@ export default function EarningsTab() {
   };
 
   /* ── deposit handler (Client) ── */
-  const handleDepositSubmit = (e: React.FormEvent) => {
+  const handleDepositSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setDpError('');
     setDpSuccess(false);
@@ -223,14 +223,15 @@ export default function EarningsTab() {
     }
 
     setIsDepositing(true);
-    depositFunds(amtNum, depositGateway.toUpperCase());
-
-    setTimeout(() => {
-      setIsDepositing(false);
+    const res = await depositFunds(amtNum, depositGateway.toUpperCase());
+    setIsDepositing(false);
+    if (res.success) {
       setDpSuccess(true);
       setDepositAmount('');
       setTimeout(() => setDpSuccess(false), 5000);
-    }, 3000);
+    } else {
+      setDpError(language === 'vi' ? 'Nạp tiền thất bại.' : 'Deposit failed.');
+    }
   };
 
   /* ── CSV export ── */

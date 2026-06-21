@@ -4,6 +4,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { MilestoneNameKey, TransactionDescKey } from '@/lib/i18n/demo-content';
 import { resolveMilestoneKey } from '@/lib/i18n/demo-content';
+import { paymentsApi } from '@/lib/api/payments.api';
+import { contractsApi } from '@/lib/api/contracts.api';
+import { jobsApi } from '@/lib/api/jobs.api';
 
 export interface PortfolioItem {
   id: string;
@@ -136,29 +139,37 @@ interface FreelancerStore {
   
   // Job & Bidding Actions
   useBidToken: () => boolean;  // returns false if quota exhausted
-  submitBid: (jobId: string, amount: number, days: number, coverLetter: string, fileName?: string) => void;
-  editBid: (bidId: string, amount: number, days: number, coverLetter: string) => void;
-  cancelBid: (bidId: string) => void;
+  submitBid: (jobId: string, amount: number, days: number, coverLetter: string, fileName?: string) => Promise<void>;
+  editBid: (bidId: string, amount: number, days: number, coverLetter: string) => Promise<void>;
+  cancelBid: (bidId: string) => Promise<void>;
   applyBidPenalty: () => void; // reduces quota on repeated cancels
   toggleBookmark: (jobId: string) => void;
   toggleJobAlerts: (enabled: boolean) => void;
   createJob: (data: Omit<Job, 'id' | 'postedAt' | 'bidsCount'>) => void;
   deleteJob: (jobId: string) => void;
 
+  // Fetch Actions
+  fetchWallet: () => Promise<void>;
+  fetchTransactions: () => Promise<void>;
+  fetchContracts: () => Promise<void>;
+  fetchJobs: () => Promise<void>;
+  fetchMyBids: () => Promise<void>;
+  fetchBidsForJob: (jobId: string) => Promise<void>;
+
   // Contract Actions
-  signContract: (contractId: string) => void;
-  updateMilestoneProgress: (contractId: string, milestoneId: string, progress: number) => void;
-  submitMilestoneDeliverable: (contractId: string, milestoneId: string, fileName: string, desc: string) => void;
-  clientApproveMilestone: (contractId: string, milestoneId: string) => void; // Simulated client action
-  reviewClient: (contractId: string) => void;
+  signContract: (contractId: string) => Promise<void>;
+  updateMilestoneProgress: (contractId: string, milestoneId: string, progress: number) => Promise<void>;
+  submitMilestoneDeliverable: (contractId: string, milestoneId: string, fileName: string, desc: string) => Promise<void>;
+  clientApproveMilestone: (contractId: string, milestoneId: string) => Promise<void>;
+  reviewClient: (contractId: string) => Promise<void>;
 
   // Wallet Actions
-  requestWithdrawal: (amount: number, method: string, details: string) => { success: boolean; error?: string };
-  depositFunds: (amount: number, gateway: string) => { success: boolean };
-  requestRefund: (contractId: string) => { success: boolean; error?: string };
+  requestWithdrawal: (amount: number, method: string, details: string) => Promise<{ success: boolean; error?: string }>;
+  depositFunds: (amount: number, gateway: string) => Promise<{ success: boolean }>;
+  requestRefund: (contractId: string) => Promise<{ success: boolean; error?: string }>;
 
   // Demo helper
-  simulateClientAcceptBid: (bidId: string) => { success: boolean; error?: string };
+  simulateClientAcceptBid: (bidId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const initialJobs: Job[] = [
@@ -546,70 +557,35 @@ export const useFreelancer = create<FreelancerStore>()(
         set({ bidPenalties: newPenalties, bidTokens: newTokens });
       },
 
-      submitBid: (jobId, amount, days, coverLetter, fileName) => {
-        const job = get().jobs.find((j) => j.id === jobId);
-        if (!job) return;
-
-        // Tính toán match score demo
-        let score = 50;
-        const profileSkills = get().profile.skills;
-        const matchedSkills = job.skills.filter(s => profileSkills.includes(s));
-        score += (matchedSkills.length / job.skills.length) * 30;
-        if (amount <= job.budget) score += 15;
-        if (get().profile.assessmentCompleted) score += 5;
-
-        const newBid: Bid = {
-          id: `bid-${Date.now()}`,
-          jobId,
-          jobTitle: job.title,
-          clientName: job.clientName,
-          amount,
-          days,
-          coverLetter,
-          fileName,
-          status: 'PENDING',
-          matchingScore: Math.round(score),
-          submittedAt: new Date().toISOString().split('T')[0]
-        };
-
-        // Update job bid count
-        const updatedJobs = get().jobs.map((j) =>
-          j.id === jobId ? { ...j, bidsCount: j.bidsCount + 1 } : j
-        );
-
-        set((state) => ({
-          bids: [newBid, ...state.bids],
-          jobs: updatedJobs
-        }));
+      submitBid: async (jobId, amount, days, coverLetter, fileName) => {
+        try {
+          await jobsApi.submitBid(jobId, { amount, deliveryDays: days, proposal: coverLetter });
+          await get().fetchMyBids();
+          await get().fetchJobs();
+        } catch (error) {
+          console.error('submitBid failed:', error);
+        }
       },
 
-      editBid: (bidId, amount, days, coverLetter) =>
-        set((state) => ({
-          bids: state.bids.map((b) =>
-            b.id === bidId
-              ? { ...b, amount, days, coverLetter, submittedAt: new Date().toISOString().split('T')[0] }
-              : b
-          )
-        })),
+      editBid: async (bidId, amount, days, coverLetter) => {
+        try {
+          await jobsApi.updateBid(bidId, { amount, deliveryDays: days, proposal: coverLetter });
+          await get().fetchMyBids();
+        } catch (error) {
+          console.error('editBid failed:', error);
+        }
+      },
 
-      cancelBid: (bidId) => {
-        const bid = get().bids.find((b) => b.id === bidId);
-        if (!bid) return;
-
-        // Giảm bid count của job tương ứng
-        const updatedJobs = get().jobs.map((j) =>
-          j.id === bid.jobId ? { ...j, bidsCount: Math.max(0, j.bidsCount - 1) } : j
-        );
-
-        set((state) => ({
-          bids: state.bids.map((b) =>
-            b.id === bidId ? { ...b, status: 'WITHDRAWN' as const } : b
-          ),
-          jobs: updatedJobs
-        }));
-
-        // Apply penalty after marking as withdrawn
-        get().applyBidPenalty();
+      cancelBid: async (bidId) => {
+        try {
+          await jobsApi.cancelBid(bidId);
+          await get().fetchMyBids();
+          await get().fetchJobs();
+          // Apply penalty
+          get().applyBidPenalty();
+        } catch (error) {
+          console.error('cancelBid failed:', error);
+        }
       },
 
       toggleBookmark: (jobId) =>
@@ -644,324 +620,270 @@ export const useFreelancer = create<FreelancerStore>()(
         })),
 
 
-      signContract: (contractId) =>
-        set((state) => ({
-          contracts: state.contracts.map((c) =>
-            c.id === contractId ? { ...c, status: 'ACTIVE' as const } : c
-          )
-        })),
-
-      updateMilestoneProgress: (contractId, milestoneId, progress) =>
-        set((state) => ({
-          contracts: state.contracts.map((c) => {
-            if (c.id !== contractId) return c;
-            const updatedMilestones = c.milestones.map((m) =>
-              m.id === milestoneId ? { ...m, progress } : m
-            );
-            return { ...c, milestones: updatedMilestones };
-          })
-        })),
-
-      submitMilestoneDeliverable: (contractId, milestoneId, fileName, desc) =>
-        set((state) => ({
-          contracts: state.contracts.map((c) => {
-            if (c.id !== contractId) return c;
-            const updatedMilestones = c.milestones.map((m) =>
-              m.id === milestoneId
-                ? {
-                    ...m,
-                    progress: 100,
-                    status: 'SUBMITTED' as const,
-                    deliverable: fileName,
-                    deliverableDesc: desc,
-                    submittedAt: new Date().toISOString().split('T')[0]
-                  }
-                : m
-            );
-            return { ...c, milestones: updatedMilestones };
-          })
-        })),
-
-      clientApproveMilestone: (contractId, milestoneId) => {
-        const contract = get().contracts.find((c) => c.id === contractId);
-        if (!contract) return;
-        const milestone = contract.milestones.find((m) => m.id === milestoneId);
-        if (!milestone) return;
-
-        // Cập nhật trạng thái milestone sang ACCEPTED
-        const updatedContracts = get().contracts.map((c) => {
-          if (c.id !== contractId) return c;
-          const updatedMilestones = c.milestones.map((m) =>
-            m.id === milestoneId ? { ...m, status: 'ACCEPTED' as const } : m
-          );
-          
-          // Kiểm tra xem tất cả milestones đã hoàn thành chưa
-          const allCompleted = updatedMilestones.every(m => m.status === 'ACCEPTED');
-          return {
-            ...c,
-            milestones: updatedMilestones,
-            status: allCompleted ? ('COMPLETED' as const) : c.status
-          };
-        });
-
-        // Chuyển tiền từ Escrow sang Balance
-        const wallet = get().wallet;
-        const newBalance = wallet.balance + milestone.amount;
-        const newEscrow = Math.max(0, wallet.escrow - milestone.amount);
-        const newTotalEarned = wallet.totalEarned + milestone.amount;
-        
-        const newTransaction: Transaction = {
-          id: `tx-${Date.now()}`,
-          type: 'EARNED',
-          amount: milestone.amount,
-          description: `Nghiệm thu cột mốc: ${milestone.name}`,
-          descKey: 'milestoneApproved',
-          descParams: {
-            jobId: contract.jobId,
-            milestoneKey: resolveMilestoneKey(milestone) ?? 'design',
-          },
-          date: new Date().toISOString().split('T')[0],
-          status: 'SUCCESS'
-        };
-
-        set({
-          contracts: updatedContracts,
-          wallet: {
-            balance: newBalance,
-            escrow: newEscrow,
-            totalEarned: newTotalEarned,
-            transactions: [newTransaction, ...wallet.transactions]
-          }
-        });
-      },
-
-      reviewClient: (contractId) =>
-        set((state) => ({
-          contracts: state.contracts.map((c) =>
-            c.id === contractId ? { ...c, clientReviewed: true } : c
-          )
-        })),
-
-      requestWithdrawal: (amount, method, details) => {
-        const wallet = get().wallet;
-        if (amount > wallet.balance) {
-          return { success: false, error: 'Số dư không đủ để thực hiện rút tiền.' };
-        }
-        if (amount < 10) {
-          return { success: false, error: 'Số tiền rút tối thiểu là 10 USD.' };
-        }
-
-        const newBalance = wallet.balance - amount;
-        
-        const newTransaction: Transaction = {
-          id: `tx-${Date.now()}`,
-          type: 'WITHDRAW',
-          amount,
-          description: `Yêu cầu rút tiền về ${method}`,
-          descKey: 'withdraw',
-          descParams: { method, details },
-          date: new Date().toISOString().split('T')[0],
-          status: 'PENDING'
-        };
-
-        set({
-          wallet: {
-            ...wallet,
-            balance: newBalance,
-            transactions: [newTransaction, ...wallet.transactions]
-          }
-        });
-
-        // Simulate success after 10 seconds for demo UI
-        setTimeout(() => {
-          set((state) => {
-            const txs = state.wallet.transactions.map((t) =>
-              t.id === newTransaction.id ? { ...t, status: 'SUCCESS' as const } : t
-            );
-            return {
-              wallet: { ...state.wallet, transactions: txs }
-            };
-          });
-        }, 15000);
-
-        return { success: true };
-      },
-
-      depositFunds: (amount, gateway) => {
-        const wallet = get().wallet;
-        const newTransaction: Transaction = {
-          id: `tx-dep-${Date.now()}`,
-          type: 'DEPOSIT',
-          amount,
-          description: `Nạp tiền vào ví qua ${gateway}`,
-          descKey: 'deposit' as any,
-          descParams: { gateway },
-          date: new Date().toISOString().split('T')[0],
-          status: 'PENDING'
-        };
-
-        set({
-          wallet: {
-            ...wallet,
-            transactions: [newTransaction, ...wallet.transactions]
-          }
-        });
-
-        // Simulate async callback (mock webhook after 3 seconds)
-        setTimeout(() => {
-          set((state) => {
-            const txs = state.wallet.transactions.map((t) =>
-              t.id === newTransaction.id ? { ...t, status: 'SUCCESS' as const } : t
-            );
-            const newBalance = state.wallet.balance + amount;
-            return {
-              wallet: {
-                ...state.wallet,
-                balance: newBalance,
-                transactions: txs
-              }
-            };
-          });
-        }, 3000);
-
-        return { success: true };
-      },
-
-      requestRefund: (contractId) => {
-        const contract = get().contracts.find((c) => c.id === contractId);
-        if (!contract) return { success: false, error: 'Không tìm thấy hợp đồng.' };
-        if (contract.status === 'COMPLETED') return { success: false, error: 'Hợp đồng đã hoàn thành, không thể hoàn tiền.' };
-
-        // Calculate unreleased amount
-        const unreleasedAmount = contract.milestones
-          .filter((m) => m.status !== 'ACCEPTED')
-          .reduce((sum, m) => sum + m.amount, 0);
-
-        if (unreleasedAmount <= 0) {
-          return { success: false, error: 'Không có số dư ký quỹ chưa giải ngân.' };
-        }
-
-        // Update contract milestones progress and status to PENDING / 0 progress
-        const updatedContracts = get().contracts.map((c) => {
-          if (c.id === contractId) {
-            return {
-              ...c,
-              status: 'COMPLETED' as const, // Close contract
-              milestones: c.milestones.map(m => m.status !== 'ACCEPTED' ? { ...m, status: 'PENDING' as const, progress: 0 } : m)
-            };
-          }
-          return c;
-        });
-
-        // Chuyển tiền từ Escrow về lại Balance
-        const wallet = get().wallet;
-        const newBalance = wallet.balance + unreleasedAmount;
-        const newEscrow = Math.max(0, wallet.escrow - unreleasedAmount);
-
-        const newTransaction: Transaction = {
-          id: `tx-refund-${Date.now()}`,
-          type: 'REFUND',
-          amount: unreleasedAmount,
-          description: `Hoàn trả ký quỹ hợp đồng: ${contract.jobTitle}`,
-          descKey: 'refund' as any,
-          descParams: { jobId: contract.jobId },
-          date: new Date().toISOString().split('T')[0],
-          status: 'SUCCESS'
-        };
-
-        set({
-          contracts: updatedContracts.filter(c => c.id !== contractId), // remove or complete
-          wallet: {
-            ...wallet,
-            balance: newBalance,
-            escrow: newEscrow,
-            transactions: [newTransaction, ...wallet.transactions]
-          }
-        });
-
-        return { success: true };
-      },
-
-      simulateClientAcceptBid: (bidId) => {
-        const bid = get().bids.find((b) => b.id === bidId);
-        if (!bid || bid.status !== 'PENDING') return { success: false, error: 'Đề xuất thầu không hợp lệ' };
-
-        const contractAmount = bid.amount;
-        const wallet = get().wallet;
-
-        // Check if balance is sufficient
-        if (wallet.balance < contractAmount) {
-          return { success: false, error: 'INSUFFICIENT_FUNDS' };
-        }
-
-        // Cập nhật trạng thái bid sang ACCEPTED
-        const updatedBids = get().bids.map((b) =>
-          b.id === bidId ? { ...b, status: 'ACCEPTED' as const } : b
-        );
-
-        // Tạo contract mới
-        const newContract: Contract = {
-          id: `con-${Date.now()}`,
-          jobId: bid.jobId,
-          jobTitle: bid.jobTitle,
-          clientName: bid.clientName,
-          amount: contractAmount,
-          status: 'SIGNED', // Cần freelancer ký nhận
-          createdAt: new Date().toISOString().split('T')[0],
-          milestones: [
-            {
-              id: `ms-1-${Date.now()}`,
-              name: 'design',
-              nameKey: 'design' as MilestoneNameKey,
-              amount: Math.round(contractAmount * 0.3),
-              progress: 0,
-              status: 'PENDING'
+      fetchWallet: async () => {
+        try {
+          const w = await paymentsApi.getWallet();
+          set((state) => ({
+            wallet: {
+              ...state.wallet,
+              balance: w.balance,
+              escrow: w.escrow,
+              totalEarned: w.totalEarned,
             },
-            {
-              id: `ms-2-${Date.now()}`,
-              name: 'coding',
-              nameKey: 'coding' as MilestoneNameKey,
-              amount: Math.round(contractAmount * 0.4),
-              progress: 0,
-              status: 'PENDING'
+          }));
+        } catch (error) {
+          console.error('fetchWallet failed:', error);
+        }
+      },
+
+      fetchTransactions: async () => {
+        try {
+          const txs = await paymentsApi.getTransactions();
+          const mappedTxs = txs.map((tx: any) => ({
+            id: tx.id,
+            type: tx.type,
+            amount: tx.amount,
+            description: tx.description,
+            descKey: tx.descKey,
+            descParams: tx.descParams ? JSON.parse(JSON.stringify(tx.descParams)) : undefined,
+            date: new Date(tx.date).toISOString().split('T')[0],
+            status: tx.status,
+          }));
+          set((state) => ({
+            wallet: {
+              ...state.wallet,
+              transactions: mappedTxs,
             },
-            {
-              id: `ms-3-${Date.now()}`,
-              name: 'delivery',
-              nameKey: 'delivery' as MilestoneNameKey,
-              amount: Math.round(contractAmount * 0.3),
-              progress: 0,
-              status: 'PENDING'
+          }));
+        } catch (error) {
+          console.error('fetchTransactions failed:', error);
+        }
+      },
+
+      fetchContracts: async () => {
+        try {
+          const rawContracts = await contractsApi.getContracts();
+          const mappedContracts = rawContracts.map((c: any) => ({
+            id: c.id,
+            jobId: c.jobId,
+            jobTitle: c.job?.title || 'Unknown Job',
+            clientName: c.job?.client?.fullName || 'Client',
+            amount: c.amount,
+            status: c.status,
+            createdAt: new Date(c.createdAt).toISOString().split('T')[0],
+            clientReviewed: c.clientReviewed,
+            milestones: c.milestones.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+              nameKey: m.nameKey,
+              amount: m.amount,
+              progress: m.progress,
+              status: m.status,
+              deliverable: m.deliverable || undefined,
+              deliverableDesc: m.deliverableDesc || undefined,
+              submittedAt: m.submittedAt ? new Date(m.submittedAt).toISOString().split('T')[0] : undefined,
+            })),
+          }));
+          set({ contracts: mappedContracts });
+        } catch (error) {
+          console.error('fetchContracts failed:', error);
+        }
+      },
+
+      fetchJobs: async () => {
+        try {
+          const rawJobs = await jobsApi.findAll();
+          const mappedJobs = rawJobs.map((j: any) => {
+            let category: 'frontend' | 'backend' | 'fullstack' | 'mobile' = 'fullstack';
+            const catName = (j.category?.name || '').toLowerCase();
+            const titleLower = (j.title || '').toLowerCase();
+            if (catName.includes('mobile')) {
+              category = 'mobile';
+            } else if (titleLower.includes('frontend') || titleLower.includes('landing') || titleLower.includes('ui')) {
+              category = 'frontend';
+            } else if (titleLower.includes('backend') || titleLower.includes('auth') || titleLower.includes('api') || titleLower.includes('service')) {
+              category = 'backend';
             }
-          ]
-        };
+            
+            return {
+              id: j.id,
+              title: j.title,
+              description: j.description,
+              category,
+              skills: j.skills ? j.skills.map((s: any) => s.name) : [],
+              budget: j.budgetFormat === 'FIXED' ? (j.fixedBudget || 0) : (j.maxBudget || 0),
+              deadline: new Date(j.deadline).toISOString().split('T')[0],
+              auctionType: j.auctionType === 'OPEN_BID' ? 'OPEN' : 'SEALED',
+              postedAt: new Date(j.createdAt).toISOString().split('T')[0],
+              bidsCount: j._count?.bids || 0,
+              clientName: j.client?.fullName || 'Client',
+            };
+          });
+          set({ jobs: mappedJobs });
+        } catch (error) {
+          console.error('fetchJobs failed:', error);
+        }
+      },
 
-        const newBalance = wallet.balance - contractAmount;
-        const newEscrow = wallet.escrow + contractAmount;
+      fetchMyBids: async () => {
+        try {
+          const rawBids = await jobsApi.getMyBids();
+          const mappedBids = rawBids.map((b: any) => ({
+            id: b.id,
+            jobId: b.jobId,
+            jobTitle: b.job?.title || '',
+            clientName: b.job?.client?.fullName || 'Client',
+            amount: b.amount,
+            days: b.deliveryDays,
+            coverLetter: b.proposal,
+            status: b.status,
+            matchingScore: b.matchingScore || 85,
+            submittedAt: new Date(b.createdAt).toISOString().split('T')[0],
+          }));
+          set({ bids: mappedBids });
+        } catch (error) {
+          console.error('fetchMyBids failed:', error);
+        }
+      },
 
-        const newTransaction: Transaction = {
-          id: `tx-escrow-${Date.now()}`,
-          type: 'ESCROW',
-          amount: contractAmount,
-          description: `Ký quỹ hợp đồng: ${bid.jobTitle}`,
-          descKey: 'escrow',
-          descParams: { jobId: bid.jobId },
-          date: new Date().toISOString().split('T')[0],
-          status: 'SUCCESS'
-        };
+      fetchBidsForJob: async (jobId: string) => {
+        try {
+          const rawBids = await jobsApi.getBidsForJob(jobId);
+          const mappedBids = rawBids.map((b: any) => ({
+            id: b.id,
+            jobId: b.jobId,
+            jobTitle: b.job?.title || '',
+            clientName: b.freelancer?.fullName || 'Freelancer',
+            amount: b.amount,
+            days: b.deliveryDays,
+            coverLetter: b.proposal,
+            status: b.status,
+            matchingScore: b.matchingScore || 85,
+            submittedAt: new Date(b.createdAt).toISOString().split('T')[0],
+          }));
 
-        set({
-          bids: updatedBids,
-          contracts: [newContract, ...get().contracts],
-          wallet: {
-            ...wallet,
-            balance: newBalance,
-            escrow: newEscrow,
-            transactions: [newTransaction, ...wallet.transactions]
-          }
-        });
+          set((state) => {
+            const otherBids = state.bids.filter((ob) => ob.jobId !== jobId);
+            return { bids: [...mappedBids, ...otherBids] };
+          });
+        } catch (error) {
+          console.error('fetchBidsForJob failed:', error);
+        }
+      },
 
-        return { success: true };
+      signContract: async (contractId) => {
+        try {
+          await contractsApi.signContract(contractId);
+          await get().fetchContracts();
+        } catch (error) {
+          console.error('signContract failed:', error);
+        }
+      },
+
+      updateMilestoneProgress: async (contractId, milestoneId, progress) => {
+        try {
+          await contractsApi.updateMilestoneProgress(contractId, milestoneId, progress);
+          await get().fetchContracts();
+        } catch (error) {
+          console.error('updateMilestoneProgress failed:', error);
+        }
+      },
+
+      submitMilestoneDeliverable: async (contractId, milestoneId, fileName, desc) => {
+        try {
+          await contractsApi.submitMilestone(contractId, milestoneId, { fileName, description: desc });
+          await get().fetchContracts();
+        } catch (error) {
+          console.error('submitMilestoneDeliverable failed:', error);
+        }
+      },
+
+      clientApproveMilestone: async (contractId, milestoneId) => {
+        try {
+          await contractsApi.approveMilestone(contractId, milestoneId);
+          await get().fetchContracts();
+          await get().fetchWallet();
+          await get().fetchTransactions();
+        } catch (error) {
+          console.error('clientApproveMilestone failed:', error);
+        }
+      },
+
+      reviewClient: async (contractId) => {
+        try {
+          await contractsApi.reviewClient(contractId, true);
+          await get().fetchContracts();
+        } catch (error) {
+          console.error('reviewClient failed:', error);
+        }
+      },
+
+      requestWithdrawal: async (amount, method, details) => {
+        try {
+          const res = await paymentsApi.withdraw({ amount, method, details });
+          await get().fetchWallet();
+          await get().fetchTransactions();
+          // We also trigger a periodic reload because the withdrawal succeeds in 15 seconds
+          setTimeout(async () => {
+            await get().fetchWallet();
+            await get().fetchTransactions();
+          }, 15500);
+          return { success: res.success };
+        } catch (error: any) {
+          console.error('requestWithdrawal failed:', error);
+          const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi rút tiền.';
+          return { success: false, error: errMsg };
+        }
+      },
+
+      depositFunds: async (amount, gateway) => {
+        try {
+          const res = await paymentsApi.deposit({ amount, gateway });
+          await get().fetchWallet();
+          await get().fetchTransactions();
+          // Trigger a reload because the simulated webhook deposit finishes in 3 seconds
+          setTimeout(async () => {
+            await get().fetchWallet();
+            await get().fetchTransactions();
+          }, 3500);
+          return { success: res.success };
+        } catch (error) {
+          console.error('depositFunds failed:', error);
+          return { success: false };
+        }
+      },
+
+      requestRefund: async (contractId) => {
+        try {
+          const res = await contractsApi.requestRefund(contractId);
+          await get().fetchContracts();
+          await get().fetchWallet();
+          await get().fetchTransactions();
+          return { success: res.success };
+        } catch (error: any) {
+          console.error('requestRefund failed:', error);
+          const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi yêu cầu hoàn tiền.';
+          return { success: false, error: errMsg };
+        }
+      },
+
+      simulateClientAcceptBid: async (bidId) => {
+        try {
+          await contractsApi.acceptBid(bidId);
+          await get().fetchContracts();
+          await get().fetchWallet();
+          await get().fetchTransactions();
+          set((state) => ({
+            bids: state.bids.map((b) =>
+              b.id === bidId ? { ...b, status: 'ACCEPTED' as const } : b
+            ),
+          }));
+          return { success: true };
+        } catch (error: any) {
+          console.error('simulateClientAcceptBid failed:', error);
+          const errMsg = error.response?.data?.message || 'Failed to accept bid';
+          return { success: false, error: errMsg };
+        }
       }
     }),
     {

@@ -67,7 +67,12 @@ export class JobsService {
     const where = clientId ? { clientId, deletedAt: null } : { deletedAt: null };
     return this.prisma.job.findMany({
       where,
-      include: { category: true, _count: { select: { bids: true } } },
+      include: {
+        category: true,
+        skills: true,
+        client: true,
+        _count: { select: { bids: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -133,6 +138,103 @@ export class JobsService {
     return this.prisma.job.update({
       where: { id },
       data: { deletedAt: new Date() }
+    });
+  }
+
+  async createBid(freelancerId: string, jobId: string, data: { amount: number; deliveryDays: number; proposal: string }) {
+    const job = await this.prisma.job.findUnique({
+      where: { id: jobId, deletedAt: null },
+    });
+    if (!job) {
+      throw new NotFoundException('Không tìm thấy dự án.');
+    }
+    if (job.status !== 'OPEN') {
+      throw new BadRequestException('Dự án không ở trạng thái mở thầu.');
+    }
+
+    // Check if already bid
+    const existingBid = await this.prisma.bid.findUnique({
+      where: {
+        jobId_freelancerId: { jobId, freelancerId },
+      },
+    });
+    if (existingBid) {
+      throw new BadRequestException('Bạn đã nộp đề xuất thầu cho dự án này rồi.');
+    }
+
+    return this.prisma.bid.create({
+      data: {
+        jobId,
+        freelancerId,
+        amount: data.amount,
+        deliveryDays: data.deliveryDays,
+        proposal: data.proposal,
+      },
+      include: {
+        freelancer: true,
+      },
+    });
+  }
+
+  async getBidsForJob(jobId: string) {
+    return this.prisma.bid.findMany({
+      where: { jobId },
+      include: {
+        freelancer: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getFreelancerBids(freelancerId: string) {
+    return this.prisma.bid.findMany({
+      where: { freelancerId },
+      include: {
+        job: {
+          include: {
+            client: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateBid(freelancerId: string, bidId: string, data: { amount: number; deliveryDays: number; proposal: string }) {
+    const bid = await this.prisma.bid.findUnique({
+      where: { id: bidId },
+    });
+
+    if (!bid || bid.freelancerId !== freelancerId) {
+      throw new ForbiddenException('Bạn không có quyền cập nhật thầu này.');
+    }
+
+    if (bid.status !== 'PENDING') {
+      throw new BadRequestException('Không thể cập nhật thầu đã được duyệt hoặc từ chối.');
+    }
+
+    return this.prisma.bid.update({
+      where: { id: bidId },
+      data: {
+        amount: data.amount,
+        deliveryDays: data.deliveryDays,
+        proposal: data.proposal,
+      },
+    });
+  }
+
+  async cancelBid(freelancerId: string, bidId: string) {
+    const bid = await this.prisma.bid.findUnique({
+      where: { id: bidId },
+    });
+
+    if (!bid || bid.freelancerId !== freelancerId) {
+      throw new ForbiddenException('Bạn không có quyền hủy thầu này.');
+    }
+
+    return this.prisma.bid.update({
+      where: { id: bidId },
+      data: { status: 'WITHDRAWN' },
     });
   }
 }

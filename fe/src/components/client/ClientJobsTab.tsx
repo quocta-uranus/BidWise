@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Edit2, Trash2, Plus, Lock, Unlock, Calendar, DollarSign, Send, Inbox, ExternalLink, Check, FolderOpen } from 'lucide-react';
 
 export default function ClientJobsTab() {
-  const { bids, simulateClientAcceptBid } = useFreelancer();
+  const { bids, simulateClientAcceptBid, fetchBidsForJob } = useFreelancer();
   const { t, language } = useTranslation();
   const router = useRouter();
 
@@ -49,7 +49,10 @@ export default function ClientJobsTab() {
       setJobs(data);
       if (selectedJob) {
         const updatedSelected = data.find((j: any) => j.id === selectedJob.id);
-        if (updatedSelected) setSelectedJob(updatedSelected);
+        if (updatedSelected) {
+          setSelectedJob(updatedSelected);
+          fetchBidsForJob(updatedSelected.id);
+        }
       }
     } catch (error) {
       toast.error('Failed to load jobs');
@@ -69,8 +72,8 @@ export default function ClientJobsTab() {
   const STATUS_TABS = ['ALL', 'DRAFT', 'OPEN', 'CLOSED', 'IN_PROGRESS', 'COMPLETED', 'DISPUTED'];
   const filteredJobs = filterTab === 'ALL' ? jobs : jobs.filter((j) => j.status === filterTab);
 
-  const handleAcceptBid = (bidId: string) => {
-    const res = simulateClientAcceptBid(bidId);
+  const handleAcceptBid = async (bidId: string) => {
+    const res = await simulateClientAcceptBid(bidId);
     if (!res.success) {
       if (res.error === 'INSUFFICIENT_FUNDS') {
         toast.error(
@@ -232,7 +235,11 @@ export default function ClientJobsTab() {
                 return (
                   <div
                     key={job.id}
-                    onClick={() => { setSelectedJob(job); setSelectedBid(null); }}
+                    onClick={() => {
+                      setSelectedJob(job);
+                      setSelectedBid(null);
+                      fetchBidsForJob(job.id);
+                    }}
                     className={`group border rounded-xl px-4 py-3 cursor-pointer transition-all ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50/30 shadow-sm'

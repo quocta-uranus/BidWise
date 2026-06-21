@@ -65,4 +65,29 @@ export const jobsApi = {
     const response = await apiClient.delete(`/jobs/${id}`);
     return response.data.data;
   },
+
+  submitBid: async (jobId: string, data: { amount: number; deliveryDays: number; proposal: string }) => {
+    const response = await apiClient.post(`/jobs/${jobId}/bids`, data);
+    return response.data.data;
+  },
+
+  getBidsForJob: async (jobId: string) => {
+    const response = await apiClient.get(`/jobs/${jobId}/bids`);
+    return response.data.data;
+  },
+
+  getMyBids: async () => {
+    const response = await apiClient.get('/jobs/my-bids');
+    return response.data.data;
+  },
+
+  updateBid: async (bidId: string, data: { amount: number; deliveryDays: number; proposal: string }) => {
+    const response = await apiClient.patch(`/jobs/bids/${bidId}`, data);
+    return response.data.data;
+  },
+
+  cancelBid: async (bidId: string) => {
+    const response = await apiClient.delete(`/jobs/bids/${bidId}`);
+    return response.data.data;
+  },
 };
