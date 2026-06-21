@@ -61,8 +61,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Clear React Query cache when logging out
       if (typeof window !== 'undefined') {
         try {
-          const { clearAllCache } = require('../providers') as typeof import('../providers');
-          clearAllCache();
+          // clearAllCache via window event to avoid circular import
+          window.dispatchEvent(new CustomEvent('bidwise:clearCache'));
         } catch {}
         // Clear Zustand persist stores (freelancer & client demo data)
         try {

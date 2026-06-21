@@ -137,8 +137,6 @@ export default function ProfileTab() {
         title: portTitle,
         desc: portDesc,
         link: portLink,
-        fileName: portFile ? portFile.name : undefined,
-        fileSize: portFile ? `${(portFile.size / (1024 * 1024)).toFixed(2)} MB` : undefined
       }, portFile || undefined);
       await queryClient.invalidateQueries({ queryKey: ['freelancer-profile'] });
 

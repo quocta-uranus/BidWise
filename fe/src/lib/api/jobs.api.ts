@@ -30,6 +30,7 @@ export interface JobResponse {
   matchScore?: number;
   skillMatch?: number;
   matchedSkills?: string[];
+  ahpWeight?: AhpWeight | null;
 }
 
 export interface PaginationMeta {
@@ -79,6 +80,20 @@ export interface JobAlertResponse {
 export interface JobAlertUpdateParams {
   enabled: boolean;
   frequency?: 'daily' | 'instant';
+}
+
+export interface AhpWeight {
+  id?: string;
+  jobId?: string;
+  priceWeight: number;
+  skillWeight: number;
+  experienceWeight: number;
+  ratingWeight: number;
+  speedWeight: number;
+  deadlineWeight: number;
+  portfolioWeight: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Backend wraps ALL responses in { success, data, timestamp } via TransformResponseInterceptor
@@ -200,6 +215,23 @@ export async function removeJob(id: string) {
   return response.data.data;
 }
 
+// Get a single job by id (alias)
+export async function findOne(id: string): Promise<JobResponse> {
+  return getJob(id);
+}
+
+// Toggle bookmark (add if not bookmarked, remove if bookmarked)
+export async function toggleBookmark(jobId: string): Promise<BookmarkResponse> {
+  const status = await checkBookmark(jobId);
+  if (status.isBookmarked) return removeBookmark(jobId);
+  return addBookmark(jobId);
+}
+
+// mapApiJobToJob — passthrough (JobResponse is already the canonical type)
+export function mapApiJobToJob(j: JobResponse): JobResponse {
+  return j;
+}
+
 // Default export object for convenience
 export const jobsApi = {
   getJobs,
@@ -209,11 +241,14 @@ export const jobsApi = {
   addBookmark,
   removeBookmark,
   checkBookmark,
+  toggleBookmark,
   getJobAlert,
   updateJobAlert,
   toggleJobAlert,
   getJob,
+  findOne,
   findMyJobs,
+  list: (params?: JobSearchParams) => getJobs(params ?? {}),
   create: createJob,
   update: updateJob,
   remove: removeJob,

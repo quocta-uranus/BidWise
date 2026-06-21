@@ -18,8 +18,6 @@ const BID_ERROR_KEYS: Partial<Record<string, TranslationKey>> = {
   BID_TOKEN_LIMIT_REACHED: 'jobs.errNoTokens',
   BID_ALREADY_EXISTS: 'jobs.errAlreadyBid',
   FREELANCER_NOT_AVAILABLE: 'jobs.errNotAvailable',
-  JOB_NOT_FOUND: 'jobs.errJobNotFound',
-  JOB_NOT_OPEN: 'jobs.errSubmitFailed',
 };
 
 function formatBidError(error: unknown, fallback: string): string {
@@ -31,7 +29,7 @@ function formatBidError(error: unknown, fallback: string): string {
 export function resolveBidErrorMessage(
   error: unknown,
   t: (key: TranslationKey) => string,
-  fallbackKey: TranslationKey = 'jobs.errSubmitFailed',
+  fallbackKey: TranslationKey = 'jobs.errAlreadyBid',
 ): string {
   const code = getApiErrorMessage(error);
   if (code && BID_ERROR_KEYS[code]) return t(BID_ERROR_KEYS[code]!);

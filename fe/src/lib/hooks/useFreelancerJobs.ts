@@ -1,11 +1,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { jobsApi, mapApiJobToJob } from '@/lib/api/jobs.api';
-import type { Job } from './useFreelancer';
+import { jobsApi, JobResponse } from '@/lib/api/jobs.api';
 
 export function useFreelancerJobs() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
   const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,9 +13,8 @@ export function useFreelancerJobs() {
     setLoading(true);
     setError(null);
     try {
-      const result = await jobsApi.list({ limit: 50, sortBy: 'newest' });
-      setJobs(result.items.map(mapApiJobToJob));
-      setBookmarks(result.items.filter((j) => j.isBookmarked).map((j) => j.id));
+      const result = await jobsApi.getJobs({ limit: 50, sortBy: 'createdAt' });
+      setJobs(result.jobs);
     } catch (e) {
       setError('Không thể tải danh sách jobs.');
       console.error(e);

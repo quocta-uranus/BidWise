@@ -35,7 +35,7 @@ export function ClientJobsList() {
     try {
       setLoading(true);
       const res = await jobsApi.findMyJobs();
-      setJobs(res.jobs);
+      setJobs(Array.isArray(res) ? res : (res as any).jobs ?? []);
     } catch (error) {
       toast.error('Failed to load jobs');
     } finally {
