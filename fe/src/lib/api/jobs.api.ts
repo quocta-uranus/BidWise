@@ -166,10 +166,24 @@ export async function getJob(id: string) {
 }
 
 // Get client's own posted jobs
-// Backend returns array directly (wrapped in { success, data, timestamp })
 export async function findMyJobs(): Promise<JobResponse[]> {
-  const response = await api.get<{ success: boolean; data: JobResponse[]; timestamp: string }>('/jobs/my-jobs');
-  return response.data.data;
+  const response = await api.get<{ success: boolean; data: JobResponse[] | { jobs: JobResponse[] }; timestamp: string }>('/jobs/my-jobs');
+  const data = response.data.data;
+  return Array.isArray(data) ? data : data.jobs;
+}
+
+// Get a single job by id
+export async function findOne(id: string): Promise<JobResponse> {
+  return getJob(id);
+}
+
+// Toggle bookmark (add if not bookmarked, remove if bookmarked)
+export async function toggleBookmark(jobId: string): Promise<BookmarkResponse> {
+  const status = await checkBookmark(jobId);
+  if (status.isBookmarked) {
+    return removeBookmark(jobId);
+  }
+  return addBookmark(jobId);
 }
 
 // Create a new job
@@ -213,23 +227,6 @@ export async function updateJob(id: string, data: Partial<{
 export async function removeJob(id: string) {
   const response = await api.delete<{ success: boolean; data: { deleted: boolean }; timestamp: string }>(`/jobs/${id}`);
   return response.data.data;
-}
-
-// Get a single job by id (alias)
-export async function findOne(id: string): Promise<JobResponse> {
-  return getJob(id);
-}
-
-// Toggle bookmark (add if not bookmarked, remove if bookmarked)
-export async function toggleBookmark(jobId: string): Promise<BookmarkResponse> {
-  const status = await checkBookmark(jobId);
-  if (status.isBookmarked) return removeBookmark(jobId);
-  return addBookmark(jobId);
-}
-
-// mapApiJobToJob — passthrough (JobResponse is already the canonical type)
-export function mapApiJobToJob(j: JobResponse): JobResponse {
-  return j;
 }
 
 // Default export object for convenience

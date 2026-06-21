@@ -3,7 +3,6 @@
 import { create } from 'zustand';
 import { AuthUser, authApi } from '../api/auth.api';
 import { setAccessToken } from '../api/client';
-import { useClearCache } from '../providers';
 
 interface AuthState {
   user: AuthUser | null;
@@ -61,7 +60,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Clear React Query cache when logging out
       if (typeof window !== 'undefined') {
         try {
-          // clearAllCache via window event to avoid circular import
           window.dispatchEvent(new CustomEvent('bidwise:clearCache'));
         } catch {}
         // Clear Zustand persist stores (freelancer & client demo data)

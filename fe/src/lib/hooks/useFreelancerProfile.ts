@@ -49,7 +49,6 @@ function mapApiToProfile(api: ApiFreelancerProfile): FreelancerProfile {
 
 export function useFreelancerProfile() {
   const profile = useFreelancer((s) => s.profile);
-  const setProfileFromApi = useFreelancer((s) => s.setProfileFromApi);
 
   const [completeness, setCompleteness] = useState<ProfileCompleteness | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,10 +58,10 @@ export function useFreelancerProfile() {
 
   const applyApiProfile = useCallback(
     (api: ApiFreelancerProfile) => {
-      setProfileFromApi(mapApiToProfile(api));
+      useFreelancer.getState().setProfileFromApi(mapApiToProfile(api));
       setCompleteness(api.completeness ?? null);
     },
-    [setProfileFromApi],
+    [],
   );
 
   const loadProfile = useCallback(async () => {
