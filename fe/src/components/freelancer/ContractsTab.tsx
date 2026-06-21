@@ -622,17 +622,6 @@ export default function ContractsTab() {
                     {t('contracts.refundRequestBtn')}
                   </button>
                 )}
-
-                {/* Action: E-Invoice Download (Visible to Client/Freelancer) */}
-                {releasedMilestones.length > 0 && (
-                  <button
-                    onClick={() => handleDownloadInvoice(selectedContract)}
-                    className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-slate-705 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm bg-white"
-                  >
-                    <Download className="w-3.5 h-3.5 text-slate-500" />
-                    {t('contracts.downloadInvoice')}
-                  </button>
-                )}
               </div>
             </div>
 
@@ -773,17 +762,6 @@ export default function ContractsTab() {
                               >
                                 <DollarSign className="w-3.5 h-3.5 text-white" />
                                 {language === 'vi' ? 'Phê duyệt & Giải ngân' : 'Approve & Release Payment'}
-                              </button>
-                            )}
-
-                            {/* Freelancer Demo/Simulate approval button */}
-                            {isFreelancer && (
-                              <button
-                                onClick={() => handleClientApproveMilestone(selectedContract.id, ms.id)}
-                                className="w-full h-7.5 bg-green-605 hover:bg-green-700 text-white font-bold text-[10px] rounded-lg shadow-sm mt-1.5 flex items-center justify-center gap-1"
-                              >
-                                <Check className="w-3.5 h-3.5 text-white" />
-                                {t('contracts.demoApprove')}
                               </button>
                             )}
                           </div>

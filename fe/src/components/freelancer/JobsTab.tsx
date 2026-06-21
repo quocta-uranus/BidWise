@@ -112,9 +112,12 @@ export default function JobsTab() {
 
   // Tính điểm matching score và match percentage cho từng Job
   const calculateMatch = (job: Job) => {
-    const profileSkills = profile.skills;
-    const matched = job.skills.filter((s) => profileSkills.includes(s));
-    const percentage = Math.round((matched.length / job.skills.length) * 100);
+    const profileSkills = profile.skills.map((s) => typeof s === 'string' ? s.trim() : '');
+    const jobSkills = job.skills
+      ? job.skills.map((s: any) => typeof s === 'string' ? s.trim() : (s && typeof s === 'object' && s.name ? String(s.name).trim() : '')).filter(Boolean)
+      : [];
+    const matched = jobSkills.filter((s) => profileSkills.includes(s));
+    const percentage = jobSkills.length > 0 ? Math.round((matched.length / jobSkills.length) * 100) : 0;
     
     // Weighted match score
     let score = percentage * 0.7; // 70% từ skills
@@ -125,14 +128,21 @@ export default function JobsTab() {
       percentage,
       score: Math.min(100, Math.round(score)),
       matchedSkills: matched,
-      missingSkills: job.skills.filter((s) => !profileSkills.includes(s))
+      missingSkills: jobSkills.filter((s) => !profileSkills.includes(s))
     };
   };
 
   // Collect all unique skills across all jobs for the skill filter
   const allJobSkills = useMemo(() => {
     const skillSet = new Set<string>();
-    jobs.forEach((j) => j.skills.forEach((s) => skillSet.add(s)));
+    jobs.forEach((j) => {
+      if (Array.isArray(j.skills)) {
+        j.skills.forEach((s: any) => {
+          const sStr = typeof s === 'string' ? s.trim() : (s && typeof s === 'object' && s.name ? String(s.name).trim() : '');
+          if (sStr) skillSet.add(sStr);
+        });
+      }
+    });
     return Array.from(skillSet).sort();
   }, [jobs]);
 
@@ -167,9 +177,12 @@ export default function JobsTab() {
     const matchesBudget = job.budget >= minBudget && job.budget <= maxBudget;
 
     // 5. Skill filter
+    const jobSkills = original.skills
+      ? original.skills.map((s: any) => typeof s === 'string' ? s.trim() : (s && typeof s === 'object' && s.name ? String(s.name).trim() : '')).filter(Boolean)
+      : [];
     const matchesSkills =
       selectedSkills.length === 0 ||
-      selectedSkills.every((s) => original.skills.includes(s));
+      selectedSkills.every((s) => jobSkills.includes(s));
 
     // 6. Deadline filter
     const matchesDeadline =
@@ -466,21 +479,24 @@ export default function JobsTab() {
 
                   {/* Skills required */}
                   <div className="flex flex-wrap gap-1">
-                    {job.skills.map((s) => {
-                      const isMatched = matchedSkills.includes(s);
-                      return (
-                        <span
-                          key={s}
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                            isMatched
-                              ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                              : 'bg-slate-50 text-slate-500 border border-slate-200'
-                          }`}
-                        >
-                          {s}
-                        </span>
-                      );
-                    })}
+                    {job.skills
+                      ?.map((s: any) => typeof s === 'string' ? s.trim() : (s && typeof s === 'object' && s.name ? String(s.name).trim() : ''))
+                      .filter(Boolean)
+                      .map((s) => {
+                        const isMatched = matchedSkills.includes(s);
+                        return (
+                          <span
+                            key={s}
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                              isMatched
+                                ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                                : 'bg-slate-50 text-slate-500 border border-slate-200'
+                            }`}
+                          >
+                            {s}
+                          </span>
+                        );
+                      })}
                   </div>
 
                   {/* Footer Stats & Actions */}

@@ -87,7 +87,9 @@ export default function DashboardPage() {
       fetchTransactions();
       fetchContracts();
       fetchJobs();
-      fetchMyBids();
+      if (activeRole === 'FREELANCER') {
+        fetchMyBids();
+      }
     }
   }, [isAuthenticated, activeRole, fetchWallet, fetchTransactions, fetchContracts, fetchJobs, fetchMyBids]);
 

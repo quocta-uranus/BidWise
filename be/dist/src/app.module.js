@@ -32,6 +32,7 @@ const roles_guard_1 = require("./common/guards/roles.guard");
 const jobs_module_1 = require("./modules/jobs/jobs.module");
 const payments_module_1 = require("./modules/payments/payments.module");
 const contracts_module_1 = require("./modules/contracts/contracts.module");
+const freelancer_module_1 = require("./modules/freelancer/freelancer.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -76,6 +77,7 @@ exports.AppModule = AppModule = __decorate([
             jobs_module_1.JobsModule,
             payments_module_1.PaymentsModule,
             contracts_module_1.ContractsModule,
+            freelancer_module_1.FreelancerModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },

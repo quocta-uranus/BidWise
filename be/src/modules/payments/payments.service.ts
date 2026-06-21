@@ -16,21 +16,9 @@ export class PaymentsService {
       wallet = await this.prisma.wallet.create({
         data: {
           userId,
-          balance: 2940, // 1500 (init) + 1440 (demo milestone release completions)
+          balance: 0,
           escrow: 0,
-          totalEarned: 2940,
-        },
-      });
-
-      // Add default init transaction
-      await this.prisma.transaction.create({
-        data: {
-          walletId: wallet.id,
-          type: 'EARNED',
-          amount: 2940,
-          description: 'Số dư khởi tạo hệ thống (Demo)',
-          descKey: 'initBalance',
-          status: 'SUCCESS',
+          totalEarned: 0,
         },
       });
     }

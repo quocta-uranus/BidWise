@@ -264,8 +264,9 @@ export const jobsApi = {
   // Bids API methods needed by client/freelancer flows in the feature branch
   findAll: async (clientId?: string) => {
     const params = clientId ? { clientId } : {};
-    const response = await api.get<{ success: boolean; data: JobResponse[]; timestamp: string }>('/jobs', { params });
-    return response.data.data;
+    const response = await api.get<{ success: boolean; data: any; timestamp: string }>('/jobs', { params });
+    const data = response.data.data;
+    return data && data.jobs ? data.jobs : data;
   },
 
   submitBid: async (jobId: string, data: { amount: number; deliveryDays: number; proposal: string }) => {

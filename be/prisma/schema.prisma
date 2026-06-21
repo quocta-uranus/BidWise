@@ -108,6 +108,7 @@ model User {
   loginSessions       LoginSession[]
   accountLogs         AccountStatusLog[]
   clientJobs          Job[]              @relation("ClientJobs")
+  freelancerBids      Bid[]              @relation("FreelancerBids")
   wallet              Wallet?
   freelancerProfile   FreelancerProfile?
   bookmarks           JobBookmark[]
@@ -300,6 +301,7 @@ model Job {
   category     Category        @relation(fields: [categoryId], references: [id])
   ahpWeight    AhpWeight?
   attachments  JobAttachment[]
+  bids         Bid[]
   contract     Contract?
   bookmarks    JobBookmark[]
   jobSkills    JobSkill[]

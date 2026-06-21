@@ -406,60 +406,10 @@ export const useFreelancer = create<FreelancerStore>()(
         }
       ],
       wallet: {
-        balance: 2940, // 1500 (init) + 240 (con-2 design) + 1200 (con-3 total)
-        escrow: 4060, // 3500 (con-1 total) + 320 (con-2 coding) + 240 (con-2 delivery)
-        totalEarned: 2940,
-        transactions: [
-          {
-            id: 'tx-con-3',
-            type: 'EARNED',
-            amount: 1200,
-            description: 'Nghiệm thu toàn bộ: Phát triển Auth Service bằng NestJS & Redis',
-            descKey: 'milestoneApproved',
-            descParams: { jobId: 'job-2', milestoneKey: 'delivery' },
-            date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'SUCCESS'
-          },
-          {
-            id: 'tx-con-2-design',
-            type: 'EARNED',
-            amount: 240,
-            description: 'Nghiệm thu cột mốc: Thiết kế giao diện',
-            descKey: 'milestoneApproved',
-            descParams: { jobId: 'job-1', milestoneKey: 'design' },
-            date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'SUCCESS'
-          },
-          {
-            id: 'tx-escrow-con-1',
-            type: 'ESCROW',
-            amount: 3500,
-            description: 'Ký quỹ hợp đồng: Hệ thống Quản lý Dự án (ERP) Fullstack',
-            descKey: 'escrow',
-            descParams: { jobId: 'job-4', milestoneKey: '' },
-            date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'SUCCESS'
-          },
-          {
-            id: 'tx-escrow-con-2',
-            type: 'ESCROW',
-            amount: 800,
-            description: 'Ký quỹ hợp đồng: Xây dựng Landing Page Next.js cho dự án SaaS',
-            descKey: 'escrow',
-            descParams: { jobId: 'job-1', milestoneKey: '' },
-            date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'SUCCESS'
-          },
-          {
-            id: 'tx-init',
-            type: 'EARNED',
-            amount: 1500,
-            description: 'Số dư khởi tạo hệ thống (Demo)',
-            descKey: 'initBalance',
-            date: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'SUCCESS'
-          }
-        ] as Transaction[]
+        balance: 0,
+        escrow: 0,
+        totalEarned: 0,
+        transactions: [] as Transaction[]
       },
       bookmarks: [],
       jobAlerts: true,
@@ -718,7 +668,8 @@ export const useFreelancer = create<FreelancerStore>()(
       fetchJobs: async () => {
         try {
           const rawJobs = await jobsApi.findAll();
-          const mappedJobs = rawJobs.map((j: any) => {
+          const jobsArray = Array.isArray(rawJobs) ? rawJobs : (rawJobs && Array.isArray(rawJobs.jobs) ? rawJobs.jobs : []);
+          const mappedJobs = jobsArray.map((j: any) => {
             let category: 'frontend' | 'backend' | 'fullstack' | 'mobile' = 'fullstack';
             const catName = (j.category?.name || '').toLowerCase();
             const titleLower = (j.title || '').toLowerCase();
@@ -735,10 +686,10 @@ export const useFreelancer = create<FreelancerStore>()(
               title: j.title,
               description: j.description,
               category,
-              skills: j.skills ? j.skills.map((s: any) => s.name) : [],
+              skills: j.skills ? j.skills.map((s: any) => typeof s === 'string' ? s : (s.name || '')) : [],
               budget: j.budgetFormat === 'FIXED' ? (j.fixedBudget || 0) : (j.maxBudget || 0),
               deadline: new Date(j.deadline).toISOString().split('T')[0],
-              auctionType: j.auctionType === 'OPEN_BID' ? 'OPEN' : 'SEALED',
+              auctionType: (j.auctionType === 'OPEN_BID' ? 'OPEN' : 'SEALED') as 'OPEN' | 'SEALED',
               postedAt: new Date(j.createdAt).toISOString().split('T')[0],
               bidsCount: j._count?.bids || 0,
               clientName: j.client?.fullName || 'Client',

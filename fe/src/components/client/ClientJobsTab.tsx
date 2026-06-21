@@ -477,7 +477,7 @@ export default function ClientJobsTab() {
                                 {fl.avatar}
                               </div>
                               <div>
-                                <h5 className="font-bold text-slate-900 text-sm">{fl.name}</h5>
+                                <h5 className="font-bold text-slate-900 text-sm">{bid.clientName || fl.name}</h5>
                                 <p className="text-[10px] text-slate-400 font-semibold">{fl.title}</p>
                                 <p className="text-[9px] text-amber-500 font-semibold">{fl.rating}</p>
                               </div>

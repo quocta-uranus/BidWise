@@ -1,3 +1,8 @@
+-- DropTable if exists from conflicting migrations
+DROP TABLE IF EXISTS "certificates" CASCADE;
+DROP TABLE IF EXISTS "portfolio_items" CASCADE;
+DROP TABLE IF EXISTS "freelancer_profiles" CASCADE;
+
 -- CreateTable
 CREATE TABLE "freelancer_profiles" (
     "id" TEXT NOT NULL,
