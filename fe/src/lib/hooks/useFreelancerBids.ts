@@ -45,13 +45,13 @@ export function mapApiBidToBid(api: ApiBid): Bid {
     jobTitle: api.jobTitle,
     clientName: api.clientName,
     amount: api.amount,
-    days: api.days,
-    coverLetter: api.coverLetter,
+    days: api.days ?? 0,
+    coverLetter: api.coverLetter ?? '',
     fileName: api.fileName ?? undefined,
     status: api.status as Bid['status'],
-    matchingScore: api.matchingScore,
+    matchingScore: api.matchingScore ?? 0,
     submittedAt: api.submittedAt,
-    matchBreakdown: api.matchBreakdown ?? undefined,
+    matchBreakdown: undefined,
     canEdit: api.canEdit,
   };
 }
@@ -79,7 +79,7 @@ export function useFreelancerBids() {
         ]);
         setBidsFromApi(list.map(mapApiBidToBid));
         setStats(statsData);
-        setWithdrawPenalties(quota.withdrawPenalties);
+        setWithdrawPenalties(quota.bidPenalties ?? 0);
         setBidQuota(quota);
       } catch (e) {
         setError('Không thể tải danh sách bid.');
