@@ -23,6 +23,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
+import { FreelancerModule } from './modules/freelancer/freelancer.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ContractsModule } from './modules/contracts/contracts.module';
     JobsModule,
     PaymentsModule,
     ContractsModule,
+    FreelancerModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

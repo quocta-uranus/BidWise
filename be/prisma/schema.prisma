@@ -108,8 +108,10 @@ model User {
   loginSessions       LoginSession[]
   accountLogs         AccountStatusLog[]
   clientJobs          Job[]              @relation("ClientJobs")
-  freelancerBids      Bid[]              @relation("FreelancerBids")
   wallet              Wallet?
+  freelancerProfile   FreelancerProfile?
+  bookmarks           JobBookmark[]
+  jobAlerts          JobAlert?
 
   @@index([email])
   @@index([status])
@@ -174,8 +176,8 @@ model OtpVerification {
   type         OtpType
   codeHash     String
   status       OtpStatus @default(PENDING)
-  attemptCount Int       @default(0)
-  sendCount    Int       @default(0)
+  attemptCount Int        @default(0)
+  sendCount    Int        @default(0)
   expiresAt    DateTime
   verifiedAt   DateTime?
   createdAt    DateTime  @default(now())
@@ -211,7 +213,7 @@ model PasswordResetToken {
   userId    String
   tokenHash String   @unique
   isUsed    Boolean  @default(false)
-  expiresAt DateTime
+  expiresAt  DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())
   ipAddress String?
@@ -235,7 +237,7 @@ model LoginSession {
   location     String?
   lastActiveAt DateTime      @default(now())
   loggedOutAt  DateTime?
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime @default(now())
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
@@ -282,10 +284,14 @@ model Job {
   minBudget    Float?
   maxBudget    Float?
   fixedBudget  Float?
+  budget       Float?
   deadline     DateTime
   categoryId   String
   auctionType  AuctionType  @default(SEALED_BID)
   status       JobStatus    @default(DRAFT)
+  sealedOpenedAt DateTime?
+  editDeadlineHours Int     @default(24)
+  skills       String[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   deletedAt    DateTime?
@@ -294,9 +300,9 @@ model Job {
   category     Category        @relation(fields: [categoryId], references: [id])
   ahpWeight    AhpWeight?
   attachments  JobAttachment[]
-  skills       JobSkill[]
-  bids         Bid[]
   contract     Contract?
+  bookmarks    JobBookmark[]
+  jobSkills    JobSkill[]
 
   @@index([clientId])
   @@index([categoryId])
@@ -356,6 +362,13 @@ model Bid {
   amount       Float
   deliveryDays Int
   proposal     String
+  days         Int?
+  coverLetter  String?
+  fileName     String?
+  fileUrl      String?
+  matchingScore Int?
+  matchBreakdown Json?
+  submittedAt  DateTime  @default(now())
   status       BidStatus @default(PENDING)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -457,4 +470,104 @@ model Milestone {
   contract        Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@map("milestones")
+}
+
+// ─── FREELANCER TABLES ───────────────────────────────────────────────────────
+
+model FreelancerProfile {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  hourlyRate             Float?
+  experience             String?
+  skills                 String[]
+  available              Boolean   @default(true)
+  bidTokens              Int       @default(10)
+  bidTokensUsed          Int       @default(0)
+  bidPenalties           Int       @default(0)
+  lastBidDate            String?
+  assessmentCompleted    Boolean   @default(false)
+  assessmentScore        Int?
+  assessmentLevel        String?
+  assessmentCompletedAt  DateTime?
+  cvFileName             String?
+  cvFileUrl              String?
+  cvFileSize             Int?
+  cvUploadedAt           DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioItems  PortfolioItem[]
+  certificates    Certificate[]
+
+  @@index([userId])
+  @@map("freelancer_profiles")
+}
+
+model PortfolioItem {
+  id                    String    @id @default(cuid())
+  freelancerProfileId   String
+  title                 String
+  desc                  String    @default("")
+  link                  String    @default("")
+  linkType              String?
+  fileName              String?
+  fileUrl               String?
+  fileSize              Int?
+  mimeType              String?
+  createdAt             DateTime  @default(now())
+
+  profile FreelancerProfile @relation(fields: [freelancerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerProfileId])
+  @@map("portfolio_items")
+}
+
+model Certificate {
+  id                    String    @id @default(cuid())
+  freelancerProfileId   String
+  name                  String
+  issuer                String
+  date                  String?
+  verifyLink            String?
+  imageUrl              String?
+  imageFileName         String?
+  verified              Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+
+  profile FreelancerProfile @relation(fields: [freelancerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([freelancerProfileId])
+  @@map("certificates")
+}
+
+// ─── BOOKMARK & ALERT TABLES ─────────────────────────────────────────────────
+
+model JobBookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  jobId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
+  @@map("job_bookmarks")
+}
+
+model JobAlert {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  enabled      Boolean  @default(true)
+  frequency    String   @default("daily") // "daily" | "instant"
+  lastSentAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("job_alerts")
 }

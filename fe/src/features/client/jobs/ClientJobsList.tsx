@@ -34,8 +34,8 @@ export function ClientJobsList() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const data = await jobsApi.findMyJobs();
-      setJobs(data);
+      const res = await jobsApi.findMyJobs();
+      setJobs(res);
     } catch (error) {
       toast.error('Failed to load jobs');
     } finally {

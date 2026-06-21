@@ -57,6 +57,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await authApi.logout(logoutAll);
     } finally {
       get().clearAuth();
+      // Clear React Query cache when logging out
+      if (typeof window !== 'undefined') {
+        // Clear Zustand persist stores (freelancer & client demo data)
+        try {
+          localStorage.removeItem('bidwise-freelancer-store');
+          localStorage.removeItem('bidwise-client-store');
+          localStorage.removeItem('bidwise-admin-store');
+        } catch {}
+      }
     }
   },
 

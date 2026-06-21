@@ -108,10 +108,10 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const rawToken = req.cookies?.[COOKIE_NAME];
-    if (!rawToken) {
-      res.status(401).json({ message: 'REFRESH_TOKEN_MISSING' });
-      return;
-    }
+    // if (!rawToken) {
+    //   res.status(401).json({ message: 'REFRESH_TOKEN_MISSING' });
+    //   return;
+    // }
     const parts = rawToken.split('.');
     if (parts.length !== 3) {
       res.status(401).json({ message: 'REFRESH_TOKEN_INVALID' });

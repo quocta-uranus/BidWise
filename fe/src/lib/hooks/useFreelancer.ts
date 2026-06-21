@@ -33,7 +33,7 @@ export interface FreelancerProfile {
   experience: string;
   skills: string[];
   portfolio: PortfolioItem[];
-  cv: { fileName: string; fileSize: string; uploadedAt: string } | null;
+  cv: { fileName: string; fileSize: string | number; uploadedAt: string; fileUrl?: string } | null;
   certificates: Certificate[];
   available: boolean;
   assessmentCompleted: boolean;
@@ -67,6 +67,12 @@ export interface Bid {
   status: 'PENDING' | 'SHORTLISTED' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
   matchingScore: number;
   submittedAt: string;
+  matchBreakdown?: {
+    skillMatch: number;
+    budgetMatch: number;
+    experienceMatch: number;
+  };
+  canEdit?: boolean;
 }
 
 export interface Milestone {
@@ -125,8 +131,14 @@ interface FreelancerStore {
   bidTokensUsed: number;     // tokens used today
   lastBidDate: string;       // ISO date of last bid
   bidPenalties: number;      // cumulative cancel count
+  withdrawPenalties: number; // cancel count affecting quota
+
+  // API sync actions
+  setBidsFromApi: (bids: Bid[]) => void;
+  setBidQuota: (quota: { bidTokens: number; bidTokensUsed: number; bidPenalties: number }) => void;
 
   // Actions
+  setProfileFromApi: (profile: Partial<FreelancerProfile>) => void;
   updateProfile: (fields: Partial<FreelancerProfile>) => void;
   addSkill: (skill: string) => void;
   removeSkill: (skill: string) => void;
@@ -457,6 +469,19 @@ export const useFreelancer = create<FreelancerStore>()(
       bidTokensUsed: 0,
       lastBidDate: '',
       bidPenalties: 0,
+      withdrawPenalties: 0,
+
+      setBidsFromApi: (bids) => set({ bids }),
+      setBidQuota: (quota) => set({
+        bidTokens: quota.bidTokens,
+        bidTokensUsed: quota.bidTokensUsed,
+        bidPenalties: quota.bidPenalties
+      }),
+
+      setProfileFromApi: (fields) =>
+        set((state) => ({
+          profile: { ...state.profile, ...fields }
+        })),
 
       updateProfile: (fields) =>
         set((state) => ({
@@ -887,7 +912,17 @@ export const useFreelancer = create<FreelancerStore>()(
       }
     }),
     {
-      name: 'bidwise-freelancer-store'
+      name: 'bidwise-freelancer-store',
+      partialize: (state) => ({
+        profile: state.profile,
+        bidTokens: state.bidTokens,
+        bidTokensUsed: state.bidTokensUsed,
+        lastBidDate: state.lastBidDate,
+        bidPenalties: state.bidPenalties,
+        withdrawPenalties: state.withdrawPenalties,
+        jobAlerts: state.jobAlerts,
+        bookmarks: state.bookmarks,
+      }),
     }
   )
 );

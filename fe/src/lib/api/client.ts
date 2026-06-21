@@ -86,3 +86,6 @@ apiClient.interceptors.response.use(
     }
   },
 );
+
+// Re-export for convenience
+export const api = apiClient;

@@ -2,7 +2,7 @@
 
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import { jobsApi, AhpWeight } from '@/lib/api/jobs.api';
+import { jobsApi } from '@/lib/api/jobs.api';
 import { toast } from 'sonner';
 import {
   X, Lock, Unlock, ChevronRight, ChevronLeft,
