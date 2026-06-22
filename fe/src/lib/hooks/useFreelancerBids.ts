@@ -18,8 +18,6 @@ const BID_ERROR_KEYS: Partial<Record<string, TranslationKey>> = {
   BID_TOKEN_LIMIT_REACHED: 'jobs.errNoTokens',
   BID_ALREADY_EXISTS: 'jobs.errAlreadyBid',
   FREELANCER_NOT_AVAILABLE: 'jobs.errNotAvailable',
-  JOB_NOT_FOUND: 'jobs.errJobNotFound',
-  JOB_NOT_OPEN: 'jobs.errSubmitFailed',
 };
 
 function formatBidError(error: unknown, fallback: string): string {
@@ -31,7 +29,7 @@ function formatBidError(error: unknown, fallback: string): string {
 export function resolveBidErrorMessage(
   error: unknown,
   t: (key: TranslationKey) => string,
-  fallbackKey: TranslationKey = 'jobs.errSubmitFailed',
+  fallbackKey: TranslationKey = 'jobs.errAlreadyBid',
 ): string {
   const code = getApiErrorMessage(error);
   if (code && BID_ERROR_KEYS[code]) return t(BID_ERROR_KEYS[code]!);
@@ -45,13 +43,13 @@ export function mapApiBidToBid(api: ApiBid): Bid {
     jobTitle: api.jobTitle,
     clientName: api.clientName,
     amount: api.amount,
-    days: api.days,
-    coverLetter: api.coverLetter,
+    days: api.days ?? 0,
+    coverLetter: api.coverLetter ?? '',
     fileName: api.fileName ?? undefined,
     status: api.status as Bid['status'],
-    matchingScore: api.matchingScore,
+    matchingScore: api.matchingScore ?? 0,
     submittedAt: api.submittedAt,
-    matchBreakdown: api.matchBreakdown ?? undefined,
+    matchBreakdown: undefined,
     canEdit: api.canEdit,
   };
 }
@@ -79,7 +77,7 @@ export function useFreelancerBids() {
         ]);
         setBidsFromApi(list.map(mapApiBidToBid));
         setStats(statsData);
-        setWithdrawPenalties(quota.withdrawPenalties);
+        setWithdrawPenalties(quota.bidPenalties ?? 0);
         setBidQuota(quota);
       } catch (e) {
         setError('Không thể tải danh sách bid.');

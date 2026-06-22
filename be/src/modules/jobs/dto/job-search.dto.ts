@@ -181,11 +181,13 @@ export class JobSearchDto {
   categoryId?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   minBudget?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   maxBudget?: number;
 
@@ -203,11 +205,13 @@ export class JobSearchDto {
   auctionType?: AuctionType;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(50)
@@ -224,6 +228,7 @@ export class JobSearchDto {
 
 export class JobSuggestionDto {
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   limit?: number = 10;
