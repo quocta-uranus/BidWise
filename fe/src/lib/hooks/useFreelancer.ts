@@ -637,25 +637,21 @@ export const useFreelancer = create<FreelancerStore>()(
 
       fetchContracts: async () => {
         try {
-          const rawContracts = await contractsApi.getContracts();
+          const rawContracts = await contractsApi.listFreelancerContracts();
           const mappedContracts = rawContracts.map((c: any) => ({
             id: c.id,
             jobId: c.jobId,
             jobTitle: c.job?.title || 'Unknown Job',
-            clientName: c.job?.client?.fullName || 'Client',
-            amount: c.amount,
+            clientName: c.client?.fullName || 'Client',
+            amount: c.totalAmount,
             status: c.status,
             createdAt: new Date(c.createdAt).toISOString().split('T')[0],
-            clientReviewed: c.clientReviewed,
-            milestones: c.milestones.map((m: any) => ({
+            milestones: (c.milestones || []).map((m: any) => ({
               id: m.id,
-              name: m.name,
-              nameKey: m.nameKey,
+              name: m.title,
               amount: m.amount,
-              progress: m.progress,
-              status: m.status,
-              deliverable: m.deliverable || undefined,
-              deliverableDesc: m.deliverableDesc || undefined,
+              progress: m.status === 'APPROVED' ? 100 : m.status === 'SUBMITTED' ? 100 : m.status === 'IN_PROGRESS' ? 50 : 0,
+              status: m.status === 'APPROVED' ? 'ACCEPTED' : m.status === 'NOT_STARTED' ? 'PENDING' : m.status,
               submittedAt: m.submittedAt ? new Date(m.submittedAt).toISOString().split('T')[0] : undefined,
             })),
           }));
@@ -749,16 +745,16 @@ export const useFreelancer = create<FreelancerStore>()(
 
       signContract: async (contractId) => {
         try {
-          await contractsApi.signContract(contractId);
+          await contractsApi.updateMilestoneProgress(contractId, '', '');
           await get().fetchContracts();
         } catch (error) {
           console.error('signContract failed:', error);
         }
       },
 
-      updateMilestoneProgress: async (contractId, milestoneId, progress) => {
+      updateMilestoneProgress: async (contractId, milestoneId, _progress) => {
         try {
-          await contractsApi.updateMilestoneProgress(contractId, milestoneId, progress);
+          await contractsApi.updateMilestoneProgress(contractId, milestoneId, '');
           await get().fetchContracts();
         } catch (error) {
           console.error('updateMilestoneProgress failed:', error);
@@ -767,7 +763,10 @@ export const useFreelancer = create<FreelancerStore>()(
 
       submitMilestoneDeliverable: async (contractId, milestoneId, fileName, desc) => {
         try {
-          await contractsApi.submitMilestone(contractId, milestoneId, { fileName, description: desc });
+          await contractsApi.submitMilestone(contractId, milestoneId, {
+            freelancerNotes: desc,
+            deliverables: [{ fileName, fileUrl: '', description: desc }],
+          });
           await get().fetchContracts();
         } catch (error) {
           console.error('submitMilestoneDeliverable failed:', error);
@@ -776,7 +775,7 @@ export const useFreelancer = create<FreelancerStore>()(
 
       clientApproveMilestone: async (contractId, milestoneId) => {
         try {
-          await contractsApi.approveMilestone(contractId, milestoneId);
+          await contractsApi.reviewMilestone(contractId, milestoneId, 'APPROVED');
           await get().fetchContracts();
           await get().fetchWallet();
           await get().fetchTransactions();
@@ -785,13 +784,8 @@ export const useFreelancer = create<FreelancerStore>()(
         }
       },
 
-      reviewClient: async (contractId) => {
-        try {
-          await contractsApi.reviewClient(contractId, true);
-          await get().fetchContracts();
-        } catch (error) {
-          console.error('reviewClient failed:', error);
-        }
+      reviewClient: async (_contractId) => {
+        // reviewClient removed in new API — no-op
       },
 
       requestWithdrawal: async (amount, method, details) => {
@@ -831,11 +825,11 @@ export const useFreelancer = create<FreelancerStore>()(
 
       requestRefund: async (contractId) => {
         try {
-          const res = await contractsApi.requestRefund(contractId);
+          await contractsApi.cancelClientContract(contractId, 'Client requested refund');
           await get().fetchContracts();
           await get().fetchWallet();
           await get().fetchTransactions();
-          return { success: res.success };
+          return { success: true };
         } catch (error: any) {
           console.error('requestRefund failed:', error);
           const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi yêu cầu hoàn tiền.';
@@ -845,7 +839,8 @@ export const useFreelancer = create<FreelancerStore>()(
 
       simulateClientAcceptBid: async (bidId) => {
         try {
-          await contractsApi.acceptBid(bidId);
+          // acceptBid removed — client now uses client-bids API to decide bids
+          console.warn('simulateClientAcceptBid: use client-bids API instead, bidId:', bidId);
           await get().fetchContracts();
           await get().fetchWallet();
           await get().fetchTransactions();
