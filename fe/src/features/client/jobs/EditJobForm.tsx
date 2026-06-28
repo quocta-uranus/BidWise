@@ -60,7 +60,7 @@ export function EditJobForm() {
         fixedBudget: job.fixedBudget != null ? String(job.fixedBudget) : '',
         deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 16) : '',
         auctionType: job.auctionType,
-        skills: job.skills?.map((s: any) => s.name).join(', ') || '',
+        skills: job.skills?.map((s: any) => typeof s === 'string' ? s : (s?.name || '')).filter(Boolean).join(', ') || '',
       });
 
       if (job.ahpWeight) {

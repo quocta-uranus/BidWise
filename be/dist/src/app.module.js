@@ -30,6 +30,8 @@ const session_module_1 = require("./modules/session/session.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const roles_guard_1 = require("./common/guards/roles.guard");
 const jobs_module_1 = require("./modules/jobs/jobs.module");
+const payments_module_1 = require("./modules/payments/payments.module");
+const contracts_module_1 = require("./modules/contracts/contracts.module");
 const freelancer_module_1 = require("./modules/freelancer/freelancer.module");
 const bids_module_1 = require("./modules/bids/bids.module");
 const client_bids_module_1 = require("./modules/client-bids/client-bids.module");
@@ -76,6 +78,8 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             admin_module_1.AdminModule,
             jobs_module_1.JobsModule,
+            payments_module_1.PaymentsModule,
+            contracts_module_1.ContractsModule,
             freelancer_module_1.FreelancerModule,
             bids_module_1.BidsModule,
             client_bids_module_1.ClientBidsModule,

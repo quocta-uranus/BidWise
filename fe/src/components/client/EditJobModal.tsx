@@ -60,7 +60,7 @@ export default function EditJobModal({ jobId, onClose, onSuccess }: Props) {
           fixedBudget: job.fixedBudget != null ? String(job.fixedBudget) : '',
           deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 16) : '',
           auctionType: job.auctionType || 'SEALED_BID',
-          skills: job.skills?.map((s: any) => s.name).join(', ') || '',
+          skills: job.skills?.map((s: any) => typeof s === 'string' ? s : (s?.name || '')).filter(Boolean).join(', ') || '',
         });
         if (job.ahpWeight) {
           const { id, jobId: _jid, createdAt, updatedAt, ...w } = job.ahpWeight;

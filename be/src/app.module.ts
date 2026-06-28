@@ -21,10 +21,11 @@ import { SessionModule } from './modules/session/session.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ContractsModule } from './modules/contracts/contracts.module';
 import { FreelancerModule } from './modules/freelancer/freelancer.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { ClientBidsModule } from './modules/client-bids/client-bids.module';
-import { ContractsModule } from './modules/contracts/contracts.module';
 
 @Module({
   imports: [
@@ -65,10 +66,11 @@ import { ContractsModule } from './modules/contracts/contracts.module';
     UsersModule,
     AdminModule,
     JobsModule,
+    PaymentsModule,
+    ContractsModule,
     FreelancerModule,
     BidsModule,
     ClientBidsModule,
-    ContractsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

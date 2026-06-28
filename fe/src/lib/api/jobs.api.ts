@@ -229,7 +229,6 @@ export async function removeJob(id: string) {
   return response.data.data;
 }
 
-// Default export object for convenience
 export const jobsApi = {
   getJobs,
   getCategories,
@@ -249,6 +248,40 @@ export const jobsApi = {
   create: createJob,
   update: updateJob,
   remove: removeJob,
+
+  // Bids API methods needed by client/freelancer flows in the feature branch
+  findAll: async (clientId?: string) => {
+    const params = clientId ? { clientId } : {};
+    const response = await api.get<{ success: boolean; data: any; timestamp: string }>('/jobs', { params });
+    const data = response.data.data;
+    return data && data.jobs ? data.jobs : data;
+  },
+
+  submitBid: async (jobId: string, data: { amount: number; deliveryDays: number; proposal: string }) => {
+    const response = await api.post<{ success: boolean; data: any; timestamp: string }>(`/jobs/${jobId}/bids`, data);
+    return response.data.data;
+  },
+
+  getBidsForJob: async (jobId: string) => {
+    const response = await api.get<{ success: boolean; data: any[]; timestamp: string }>(`/jobs/${jobId}/bids`);
+    return response.data.data;
+  },
+
+  getMyBids: async () => {
+    const response = await api.get<{ success: boolean; data: any[]; timestamp: string }>('/jobs/my-bids');
+    return response.data.data;
+  },
+
+  updateBid: async (bidId: string, data: { amount: number; deliveryDays: number; proposal: string }) => {
+    const response = await api.patch<{ success: boolean; data: any; timestamp: string }>(`/jobs/bids/${bidId}`, data);
+    return response.data.data;
+  },
+
+  cancelBid: async (bidId: string) => {
+    const response = await api.delete<{ success: boolean; data: any; timestamp: string }>(`/jobs/bids/${bidId}`);
+    return response.data.data;
+  },
 };
 
 export default jobsApi;
+
