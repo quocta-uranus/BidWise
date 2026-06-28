@@ -1,104 +1,145 @@
-import { apiClient } from './client';
+import { api } from './client';
+
+export interface MilestoneDeliverable {
+  id: string;
+  milestoneId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  description: string | null;
+  uploadedAt: string;
+}
 
 export interface Milestone {
   id: string;
   contractId: string;
-  name: string;
-  nameKey?: string;
+  order: number;
+  title: string;
+  description: string | null;
   amount: number;
-  progress: number;
-  status: 'PENDING' | 'SUBMITTED' | 'ACCEPTED';
-  deliverable?: string;
-  deliverableDesc?: string;
-  submittedAt?: string;
-  createdAt: string;
-  updatedAt: string;
+  percentage: number;
+  deadline: string;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REVISION_REQUESTED';
+  maxRevisions: number;
+  revisionCount: number;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  autoApproveAt: string | null;
+  clientFeedback: string | null;
+  freelancerNotes: string | null;
+  deliverables?: MilestoneDeliverable[];
 }
 
 export interface Contract {
   id: string;
   jobId: string;
+  bidId: string;
+  clientId: string;
   freelancerId: string;
-  amount: number;
-  status: 'SIGNED' | 'ACTIVE' | 'COMPLETED';
+  title: string;
+  description: string | null;
+  totalAmount: number;
+  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'DISPUTED' | 'CANCELLED';
+  customTerms: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  autoApprovalDays: number;
   createdAt: string;
-  updatedAt: string;
-  clientReviewed: boolean;
-  milestones?: Milestone[];
-  job?: {
-    id: string;
-    title: string;
-    clientId: string;
-  };
+  milestones: Milestone[];
+  client: { id: string; fullName: string; avatarUrl: string | null };
+  freelancer: { id: string; fullName: string; avatarUrl: string | null };
+  job: { id: string; title: string; status: string };
+  statusLogs?: any[];
 }
 
-export interface SubmitDeliverableDto {
-  fileName: string;
+export interface CreateContractDto {
+  bidId: string;
   description?: string;
+  customTerms?: string;
+  milestones: {
+    order: number;
+    title: string;
+    description?: string;
+    amount: number;
+    percentage: number;
+    deadline: string;
+    maxRevisions?: number;
+  }[];
 }
 
 export const contractsApi = {
-  getContracts: async (): Promise<Contract[]> => {
-    const response = await apiClient.get('/contracts');
-    return response.data.data;
+  // Client
+  createContract: async (dto: CreateContractDto): Promise<Contract> => {
+    const res = await api.post('/client/contracts', dto);
+    return res.data.data;
   },
 
-  acceptBid: async (bidId: string): Promise<Contract> => {
-    const response = await apiClient.post('/contracts/accept-bid', { bidId });
-    return response.data.data;
+  listClientContracts: async (status?: string): Promise<Contract[]> => {
+    const res = await api.get('/client/contracts', { params: status ? { status } : undefined });
+    return res.data.data;
   },
 
-  signContract: async (contractId: string): Promise<Contract> => {
-    const response = await apiClient.post(`/contracts/${contractId}/sign`);
-    return response.data.data;
+  getClientContract: async (id: string): Promise<Contract> => {
+    const res = await api.get(`/client/contracts/${id}`);
+    return res.data.data;
   },
 
-  updateMilestoneProgress: async (
+  reviewMilestone: async (
     contractId: string,
     milestoneId: string,
-    progress: number,
-  ): Promise<Milestone> => {
-    const response = await apiClient.patch(
-      `/contracts/${contractId}/milestones/${milestoneId}/progress`,
-      { progress },
-    );
-    return response.data.data;
+    action: 'APPROVED' | 'REJECTED' | 'REVISION_REQUESTED',
+    feedback?: string,
+  ) => {
+    const res = await api.patch(`/client/contracts/${contractId}/milestones/${milestoneId}/review`, {
+      action,
+      feedback,
+    });
+    return res.data.data;
+  },
+
+  cancelClientContract: async (contractId: string, reason: string) => {
+    const res = await api.patch(`/client/contracts/${contractId}/cancel`, { reason });
+    return res.data.data;
+  },
+
+  // Freelancer
+  listFreelancerContracts: async (status?: string): Promise<Contract[]> => {
+    const res = await api.get('/freelancer/contracts', { params: status ? { status } : undefined });
+    return res.data.data;
+  },
+
+  getFreelancerContract: async (id: string): Promise<Contract> => {
+    const res = await api.get(`/freelancer/contracts/${id}`);
+    return res.data.data;
   },
 
   submitMilestone: async (
     contractId: string,
     milestoneId: string,
-    data: SubmitDeliverableDto,
-  ): Promise<Milestone> => {
-    const response = await apiClient.post(
-      `/contracts/${contractId}/milestones/${milestoneId}/submit`,
-      data,
+    data: {
+      freelancerNotes?: string;
+      deliverables?: { fileName: string; fileUrl: string; description?: string }[];
+    },
+  ) => {
+    const res = await api.post(`/freelancer/contracts/${contractId}/milestones/${milestoneId}/submit`, data);
+    return res.data.data;
+  },
+
+  updateMilestoneProgress: async (contractId: string, milestoneId: string, notes: string) => {
+    const res = await api.patch(
+      `/freelancer/contracts/${contractId}/milestones/${milestoneId}/progress`,
+      { notes },
     );
-    return response.data.data;
+    return res.data.data;
   },
 
-  approveMilestone: async (
-    contractId: string,
-    milestoneId: string,
-  ): Promise<Milestone> => {
-    const response = await apiClient.post(
-      `/contracts/${contractId}/milestones/${milestoneId}/approve`,
-    );
-    return response.data.data;
-  },
-
-  requestRefund: async (contractId: string): Promise<{ success: boolean }> => {
-    const response = await apiClient.post(`/contracts/${contractId}/refund`);
-    return response.data.data;
-  },
-
-  reviewClient: async (
-    contractId: string,
-    clientReviewed: boolean,
-  ): Promise<Contract> => {
-    const response = await apiClient.post(`/contracts/${contractId}/review-client`, {
-      clientReviewed,
-    });
-    return response.data.data;
+  cancelFreelancerContract: async (contractId: string, reason: string) => {
+    const res = await api.patch(`/freelancer/contracts/${contractId}/cancel`, { reason });
+    return res.data.data;
   },
 };

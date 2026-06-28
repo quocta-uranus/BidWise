@@ -1,462 +1,494 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useFreelancer, Bid } from '@/lib/hooks/useFreelancer';
-import { useTranslation } from '@/lib/i18n/useTranslation';
-import { getJobTitle } from '@/lib/i18n/demo-content';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Clock, DollarSign, Edit2, Trash2, ChevronDown, ChevronUp,
+  Star, AlertCircle, CheckCircle, BookmarkCheck, XCircle, Lightbulb,
+  TrendingUp, Target, Zap
+} from 'lucide-react';
+import { bidsApi, ApiBid, BidStats, BidQuota, MatchBreakdown } from '@/lib/api/bids.api';
+import { toast } from 'sonner';
 
-export default function BidsTab() {
-  const { bids, editBid, cancelBid, simulateClientAcceptBid, bidPenalties, fetchMyBids } = useFreelancer();
+// ─── Status config ────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    fetchMyBids();
-  }, [fetchMyBids]);
-  const { t, language } = useTranslation();
+const STATUS_CFG: Record<string, { label: string; color: string; icon: any }> = {
+  PENDING:     { label: 'Chờ xét',   color: 'bg-slate-100 text-slate-600',    icon: Clock },
+  SHORTLISTED: { label: 'Shortlist', color: 'bg-amber-100 text-amber-700',    icon: BookmarkCheck },
+  ACCEPTED:    { label: 'Được chọn', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle },
+  REJECTED:    { label: 'Từ chối',   color: 'bg-rose-100 text-rose-600',      icon: XCircle },
+  WITHDRAWN:   { label: 'Đã rút',    color: 'bg-slate-100 text-slate-400',    icon: XCircle },
+  EXPIRED:     { label: 'Hết hạn',   color: 'bg-slate-100 text-slate-400',    icon: AlertCircle },
+};
 
-  // Status filter
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+const STATUS_FILTERS = ['ALL', 'PENDING', 'SHORTLISTED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'];
 
-  // Dialog / Edit states
-  const [selectedBid, setSelectedBid] = useState<Bid | null>(null);
-  const [editingBid, setEditingBid] = useState<Bid | null>(null);
+// ─── Match Score Breakdown (FL-13) ────────────────────────────────────────────
 
-  // Form states for editing
-  const [editAmount, setEditAmount] = useState('');
-  const [editDays, setEditDays] = useState('');
-  const [editCover, setEditCover] = useState('');
-  const [editError, setEditError] = useState('');
+function ScoreBar({ label, score, max, color }: { label: string; score: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((score / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-500 w-20 shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs font-semibold text-slate-700 w-12 text-right">{score}/{max}</span>
+    </div>
+  );
+}
 
-  const handleStartEdit = (bid: Bid) => {
-    setEditingBid(bid);
-    setEditAmount(String(bid.amount));
-    setEditDays(String(bid.days));
-    setEditCover(bid.coverLetter);
-    setEditError('');
+function MatchBreakdownPanel({ breakdown, total }: { breakdown: MatchBreakdown; total: number }) {
+  const scoreColor = total >= 75 ? 'text-emerald-600' : total >= 50 ? 'text-amber-600' : 'text-slate-500';
+  const barColor = total >= 75 ? 'bg-emerald-500' : total >= 50 ? 'bg-amber-400' : 'bg-slate-400';
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-700">Điểm matching của bạn</span>
+        <span className={`text-xl font-black ${scoreColor}`}>{total}/100</span>
+      </div>
+      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${total}%` }} />
+      </div>
+      <div className="space-y-1.5 pt-1">
+        <ScoreBar label="Kỹ năng"    score={breakdown.skills.score}     max={breakdown.skills.max}     color="bg-blue-500" />
+        <ScoreBar label="Ngân sách"  score={breakdown.budget.score}     max={breakdown.budget.max}     color="bg-emerald-500" />
+        <ScoreBar label="Assessment" score={breakdown.assessment.score} max={breakdown.assessment.max} color="bg-purple-500" />
+        <ScoreBar label="Profile"    score={breakdown.profile.score}    max={breakdown.profile.max}    color="bg-amber-400" />
+      </div>
+      <div className="pt-2 border-t border-slate-100 space-y-1 text-xs text-slate-500">
+        <p className="flex items-start gap-1.5"><span className="text-blue-500 shrink-0 mt-0.5">•</span>{breakdown.skills.explanation}</p>
+        <p className="flex items-start gap-1.5"><span className="text-emerald-500 shrink-0 mt-0.5">•</span>{breakdown.budget.explanation}</p>
+        <p className="flex items-start gap-1.5"><span className="text-purple-500 shrink-0 mt-0.5">•</span>{breakdown.assessment.explanation}</p>
+        {(breakdown.skills.missing?.length ?? 0) > 0 && (
+          <p className="flex items-start gap-1.5 text-amber-600 font-medium">
+            <AlertCircle size={11} className="shrink-0 mt-0.5" />
+            Kỹ năng còn thiếu: {breakdown.skills.missing.join(', ')}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Bid Modal (FL-14) ───────────────────────────────────────────────────
+
+function EditBidModal({ bid, onClose, onSaved }: {
+  bid: ApiBid;
+  onClose: () => void;
+  onSaved: (updated: ApiBid) => void;
+}) {
+  const [amount, setAmount] = useState(String(bid.amount));
+  const [days, setDays] = useState(String(bid.days ?? ''));
+  const [coverLetter, setCoverLetter] = useState(bid.coverLetter ?? '');
+  const [loading, setLoading] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+
+  const handleSuggest = async () => {
+    setSuggesting(true);
+    try {
+      const res = await bidsApi.suggestCoverLetter(bid.jobId);
+      setCoverLetter(res.template);
+      toast.success('Đã tạo gợi ý cover letter');
+    } catch {
+      toast.error('Không thể tạo gợi ý');
+    } finally {
+      setSuggesting(false);
+    }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBid) return;
-
-    const amt = Number(editAmount);
-    const dys = Number(editDays);
-
-    if (isNaN(amt) || amt <= 0) {
-      setEditError(t('bids.errInvalidAmount'));
-      return;
+    const amt = Number(amount);
+    const dys = Number(days);
+    if (!amt || amt <= 0) { toast.error('Giá bid không hợp lệ'); return; }
+    if (!dys || dys <= 0) { toast.error('Số ngày không hợp lệ'); return; }
+    if (!coverLetter.trim()) { toast.error('Vui lòng nhập cover letter'); return; }
+    setLoading(true);
+    try {
+      const updated = await bidsApi.updateBid(bid.id, { amount: amt, days: dys, coverLetter });
+      toast.success('Đã cập nhật bid!');
+      onSaved(updated);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Cập nhật thất bại');
+    } finally {
+      setLoading(false);
     }
-    if (isNaN(dys) || dys <= 0) {
-      setEditError(t('bids.errInvalidDays'));
-      return;
-    }
-
-    editBid(editingBid.id, amt, dys, editCover);
-    setEditingBid(null);
-  };
-
-  const handleCancelBid = (bidId: string) => {
-    if (confirm(t('bids.confirmWithdraw'))) {
-      cancelBid(bidId);
-      if (selectedBid?.id === bidId) setSelectedBid(null);
-    }
-  };
-
-  // Tính toán chỉ số thống kê
-  const totalBids = bids.filter(b => b.status !== 'WITHDRAWN').length;
-  const acceptedBids = bids.filter((b) => b.status === 'ACCEPTED').length;
-  const winRate = totalBids > 0 ? Math.round((acceptedBids / totalBids) * 100) : 0;
-  
-  const totalAmount = bids
-    .filter((b) => b.status !== 'WITHDRAWN')
-    .reduce((sum, b) => sum + b.amount, 0);
-  const avgBidPrice = totalBids > 0 ? Math.round(totalAmount / totalBids) : 0;
-
-  // Category breakdown data
-  const categories = ['frontend', 'backend', 'mobile', 'fullstack'] as const;
-  // We don't have jobCategory on bid directly, so we extract from jobId demo mapping
-  // Use a simple heuristic: match jobTitle keywords to categories
-  const getCategoryForBid = (bid: typeof bids[number]) => {
-    const title = bid.jobTitle.toLowerCase();
-    if (title.includes('mobile') || title.includes('native')) return 'mobile';
-    if (title.includes('nest') || title.includes('backend') || title.includes('auth') || title.includes('api') || title.includes('redis')) return 'backend';
-    if (title.includes('fullstack') || title.includes('erp') || title.includes('management')) return 'fullstack';
-    return 'frontend';
-  };
-
-  const categoryBreakdown = categories.map((cat) => {
-    const catBids = bids.filter((b) => getCategoryForBid(b) === cat && b.status !== 'WITHDRAWN');
-    const catWon = catBids.filter((b) => b.status === 'ACCEPTED').length;
-    return {
-      cat,
-      count: catBids.length,
-      won: catWon,
-      winPct: catBids.length > 0 ? Math.round((catWon / catBids.length) * 100) : 0
-    };
-  }).filter((d) => d.count > 0);
-
-  // Filtered bid list
-  const filteredBids = statusFilter === 'ALL'
-    ? bids
-    : bids.filter((b) => b.status === statusFilter);
-
-  const categoryLabels: Record<string, string> = {
-    frontend: 'Frontend',
-    backend: 'Backend',
-    mobile: 'Mobile',
-    fullstack: 'Fullstack',
   };
 
   return (
-    <div className="space-y-6">
-      {/* Penalty warning */}
-      {bidPenalties >= 3 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 flex items-center gap-3">
-          <span className="text-xl">⚠️</span>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="font-bold text-slate-900">Chỉnh sửa Bid — FL-14</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+        </div>
+        <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600">
+          <span className="font-semibold">Job: </span>{bid.jobTitle}
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Giá bid ($) *</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Thời gian (ngày) *</label>
+              <input
+                type="number"
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                className="w-full h-10 px-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
           <div>
-            <p className="text-xs font-bold text-amber-800">
-              {t('bids.bidPenaltyWarning', { count: String(bidPenalties) })}
-            </p>
-            <p className="text-[10px] text-amber-600 mt-0.5">
-              {t('bids.cancelCount')} <strong>{bidPenalties}</strong>
-            </p>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-700">Cover Letter *</label>
+              <button
+                type="button"
+                onClick={handleSuggest}
+                disabled={suggesting}
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+              >
+                <Lightbulb size={11} />
+                {suggesting ? 'Đang tạo...' : 'Gợi ý AI (FL-17)'}
+              </button>
+            </div>
+            <textarea
+              value={coverLetter}
+              onChange={(e) => setCoverLetter(e.target.value)}
+              rows={6}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Mô tả lý do bạn phù hợp với job này..."
+            />
           </div>
-        </div>
-      )}
-      {/* Statistics Dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('bids.submitted')}</p>
-          <div className="flex justify-between items-baseline mt-2">
-            <span className="text-3xl font-black text-slate-900">{totalBids}</span>
-            <span className="text-xs font-bold text-slate-400">{t('bids.excludingWithdrawn')}</span>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 h-10 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-10 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
           </div>
-        </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('bids.winRate')}</p>
-          <div className="flex justify-between items-baseline mt-2">
-            <span className="text-3xl font-black text-blue-600">{winRate}%</span>
-            <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">
-              {t('bids.projectsWon', { count: acceptedBids })}
-            </span>
-          </div>
-        </div>
+// ─── Main BidsTab ─────────────────────────────────────────────────────────────
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('bids.avgBidValue')}</p>
-          <div className="flex justify-between items-baseline mt-2">
-            <span className="text-3xl font-black text-slate-900">${avgBidPrice}</span>
-            <span className="text-xs font-bold text-slate-400">{t('bids.perProject')}</span>
+export default function BidsTab() {
+  const [bids, setBids] = useState<ApiBid[]>([]);
+  const [stats, setStats] = useState<BidStats | null>(null);
+  const [quota, setQuota] = useState<BidQuota | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [expandedBid, setExpandedBid] = useState<string | null>(null);
+  const [editingBid, setEditingBid] = useState<ApiBid | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [bidsData, statsData, quotaData] = await Promise.all([
+        bidsApi.listMyBids(),
+        bidsApi.getStats(),
+        bidsApi.getQuota(),
+      ]);
+      setBids(bidsData);
+      setStats(statsData);
+      setQuota(quotaData);
+    } catch {
+      toast.error('Không thể tải dữ liệu bids');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleWithdraw = async (bidId: string) => {
+    if (!confirm('Rút bid này? Bạn có thể bị trừ token nếu rút quá nhiều.')) return;
+    setWithdrawingId(bidId);
+    try {
+      const updated = await bidsApi.withdrawBid(bidId);
+      setBids((prev) => prev.map((b) => (b.id === bidId ? updated : b)));
+      toast.success('Đã rút bid');
+      load();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Không thể rút bid');
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
+
+  const handleEditSaved = (updated: ApiBid) => {
+    setBids((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    setEditingBid(null);
+  };
+
+  const filteredBids = statusFilter === 'ALL' ? bids : bids.filter((b) => b.status === statusFilter);
+
+  if (loading) {
+    return <div className="py-16 text-center text-slate-400">Đang tải...</div>;
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── Stats row (FL-18) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Tổng bids',   value: stats?.totalBids ?? 0,        icon: Target,     color: 'text-slate-700' },
+          { label: 'Win rate',    value: `${stats?.winRate ?? 0}%`,     icon: TrendingUp, color: 'text-emerald-600' },
+          { label: 'Avg giá',    value: `$${stats?.avgBidPrice ?? 0}`, icon: DollarSign, color: 'text-blue-600' },
+          {
+            label: 'Token hôm nay',
+            value: quota ? `${quota.remaining}/${quota.dailyLimit}` : '—',
+            icon: Zap,
+            color: quota && quota.remaining <= 2 ? 'text-rose-500' : 'text-amber-600',
+          },
+        ].map((s) => (
+          <div key={s.label} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+            <s.icon size={20} className={`${s.color} shrink-0`} />
+            <div>
+              <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-slate-400">{s.label}</p>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* Category Breakdown Chart */}
-      {categoryBreakdown.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2.5 mb-4">
-            {t('bids.categoryBreakdown')}
-          </h3>
-          <div className="space-y-3">
-            {categoryBreakdown.map((d) => (
-              <div key={d.cat}>
-                <div className="flex justify-between items-center text-xs mb-1">
-                  <span className="font-semibold text-slate-700">{categoryLabels[d.cat]}</span>
-                  <span className="text-slate-400">
-                    {d.count} bid{d.count !== 1 ? 's' : ''} · {d.winPct}% win
-                  </span>
+      {/* Quota warning */}
+      {quota && quota.remaining === 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs text-rose-700 font-semibold flex items-center gap-2">
+          <AlertCircle size={14} />
+          Hết lượt bid hôm nay ({quota.tier}). Token reset lúc 00:00 ngày mai.
+        </div>
+      )}
+
+      {/* ── Win rate by category (FL-18) ── */}
+      {stats && stats.byCategory.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-4">
+          <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-3">Win rate theo category</p>
+          <div className="space-y-2">
+            {stats.byCategory.slice(0, 5).map((cat) => (
+              <div key={cat.category} className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 w-32 shrink-0 truncate">{cat.category}</span>
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${cat.winRate}%` }} />
                 </div>
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(d.winPct, d.count > 0 ? 8 : 0)}%` }}
-                  />
-                </div>
+                <span className="text-xs text-slate-500 w-20 text-right shrink-0">
+                  {cat.bids} bids · {cat.winRate}%
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Main bids list */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <h3 className="font-extrabold text-lg text-slate-900">{t('bids.yourBids')}</h3>
-          {/* Status filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 uppercase">{t('bids.statusFilter')}:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-8 px-2 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:border-blue-500"
+      {/* ── Status filter tabs (FL-16) ── */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {STATUS_FILTERS.map((s) => {
+          const count = s === 'ALL' ? bids.length : bids.filter((b) => b.status === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                statusFilter === s
+                  ? 'bg-blue-600 text-white font-semibold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
             >
-              <option value="ALL">{t('bids.filterAll')}</option>
-              <option value="PENDING">Pending</option>
-              <option value="SHORTLISTED">Shortlisted</option>
-              <option value="ACCEPTED">Accepted</option>
-              <option value="REJECTED">Rejected</option>
-              <option value="WITHDRAWN">Withdrawn</option>
-            </select>
-          </div>
+              {s === 'ALL' ? 'Tất cả' : STATUS_CFG[s]?.label ?? s}
+              <span className="ml-1 opacity-70">({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Bid list ── */}
+      {filteredBids.length === 0 ? (
+        <div className="py-16 text-center space-y-2">
+          <Target size={36} className="mx-auto text-slate-200" />
+          <p className="font-semibold text-slate-600">
+            {statusFilter === 'ALL'
+              ? 'Bạn chưa gửi bid nào.'
+              : `Không có bid ${STATUS_CFG[statusFilter]?.label?.toLowerCase()}.`}
+          </p>
+          <p className="text-xs text-slate-400">Vào tab "Tìm việc" để khám phá jobs và gửi đề xuất.</p>
         </div>
-        
-        {bids.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-sm">
-            {t('bids.noBids')}
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredBids.map((bid) => {
-              const scoreColor =
-                bid.matchingScore >= 75
-                  ? 'text-green-600 bg-green-50 border-green-100'
-                  : bid.matchingScore >= 50
-                  ? 'text-amber-600 bg-amber-50 border-amber-100'
-                  : 'text-slate-500 bg-slate-50 border-slate-150';
+      ) : (
+        <div className="space-y-3">
+          {filteredBids.map((bid) => {
+            const cfg = STATUS_CFG[bid.status] ?? STATUS_CFG.PENDING;
+            const Icon = cfg.icon;
+            const isExpanded = expandedBid === bid.id;
+            const canEdit = bid.canEdit;
+            const canWithdraw = bid.status === 'PENDING' || bid.status === 'SHORTLISTED';
+            const score = bid.matchingScore ?? 0;
+            const scoreColor = score >= 75 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-slate-500';
 
-              const statusColor: Record<string, string> = {
-                PENDING: 'bg-blue-50 text-blue-700 border-blue-100',
-                SHORTLISTED: 'bg-violet-50 text-violet-700 border-violet-100',
-                ACCEPTED: 'bg-green-50 text-green-700 border-green-100',
-                REJECTED: 'bg-red-50 text-red-700 border-red-100',
-                WITHDRAWN: 'bg-slate-100 text-slate-400 border-slate-200'
-              };
-
-              return (
-                <div key={bid.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 first:pt-0 last:pb-0">
-                  <div className="space-y-1.5 flex-1 min-w-0">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <h4
-                        className="font-bold text-slate-900 text-sm hover:text-blue-600 cursor-pointer truncate max-w-sm"
-                        onClick={() => setSelectedBid(bid)}
-                      >
-                        {getJobTitle(bid.jobId, language, bid.jobTitle)}
-                      </h4>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor[bid.status]}`}>
-                        {bid.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {t('common.client')}: <span className="font-semibold text-slate-700">{bid.clientName}</span> · {t('bids.sentOn', { date: bid.submittedAt })}
-                    </p>
-                    
-                    <div className="flex gap-4 text-xs pt-1">
-                      <div>
-                        <span className="text-slate-400">{t('bids.proposedPrice')}</span>{' '}
-                        <span className="font-bold text-slate-800">${bid.amount}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400">{t('bids.duration')}</span>{' '}
-                        <span className="font-semibold text-slate-800">{t('common.dayUnit', { count: bid.days })}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-400">{t('bids.matchScore')}</span>{' '}
-                        <span className={`font-bold px-1.5 rounded border text-[10px] ${scoreColor}`}>{bid.matchingScore}%</span>
-                      </div>
-                    </div>
+            return (
+              <div
+                key={bid.id}
+                className={`bg-white border rounded-2xl overflow-hidden transition-all ${
+                  bid.status === 'ACCEPTED'
+                    ? 'border-emerald-300'
+                    : bid.status === 'SHORTLISTED'
+                    ? 'border-amber-300'
+                    : 'border-slate-200'
+                }`}
+              >
+                {/* Row */}
+                <div className="p-4 flex items-start gap-3">
+                  {/* Status icon */}
+                  <div className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${cfg.color}`}>
+                    <Icon size={15} />
                   </div>
 
-                  <div className="flex items-center gap-2 self-end md:self-center">
-                    {bid.status === 'PENDING' && (
-                      <>
-                        {/* Demo Trigger: Client Accepts */}
-                        <button
-                          onClick={async () => {
-                            const res = await simulateClientAcceptBid(bid.id);
-                            if (res.success) {
-                              alert(t('bids.demoAcceptAlert', { client: bid.clientName }));
-                            } else {
-                              if (res.error === 'INSUFFICIENT_FUNDS') {
-                                alert(
-                                  language === 'vi'
-                                    ? 'Số dư ví của khách hàng không đủ để thực hiện ký quỹ. Vui lòng chuyển sang vai Client để nạp thêm tiền.'
-                                    : 'The client\'s wallet balance is insufficient to escrow this contract. Please switch to the Client role and deposit funds first.'
-                                );
-                              } else {
-                                alert(res.error || 'Failed to simulate accept');
-                              }
-                            }
-                          }}
-                          className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-lg shadow-sm"
-                          title="Demo"
-                        >
-                          {t('bids.simulateAccept')}
-                        </button>
-                        <button
-                          onClick={() => handleStartEdit(bid)}
-                          className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg"
-                        >
-                          {t('common.edit')}
-                        </button>
-                        <button
-                          onClick={() => handleCancelBid(bid.id)}
-                          className="h-8 px-3 text-red-500 hover:bg-red-50 text-xs font-semibold rounded-lg"
-                        >
-                          {t('bids.withdraw')}
-                        </button>
-                      </>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-slate-900 text-sm">{bid.jobTitle}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.color}`}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">Client: {bid.clientName}</p>
+                    <div className="flex items-center gap-4 mt-1.5 flex-wrap">
+                      <span className="flex items-center gap-1 text-sm font-bold text-slate-800">
+                        <DollarSign size={12} className="text-emerald-500" />
+                        ${bid.amount.toLocaleString()}
+                      </span>
+                      {bid.days && (
+                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                          <Clock size={11} />{bid.days} ngày
+                        </span>
+                      )}
+                      {bid.matchingScore != null && (
+                        <span className={`flex items-center gap-1 text-xs font-semibold ${scoreColor}`}>
+                          <Star size={11} />Match {bid.matchingScore}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Gửi: {new Date(bid.submittedAt).toLocaleDateString('vi-VN')}
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* FL-14: Edit */}
+                    {canEdit && (
+                      <button
+                        onClick={() => setEditingBid(bid)}
+                        title="Chỉnh sửa bid (FL-14)"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    )}
+                    {/* FL-15: Withdraw */}
+                    {canWithdraw && (
+                      <button
+                        onClick={() => handleWithdraw(bid.id)}
+                        disabled={withdrawingId === bid.id}
+                        title="Rút bid (FL-15)"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors disabled:opacity-40"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     )}
                     <button
-                      onClick={() => setSelectedBid(bid)}
-                      className="h-8 px-3 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg"
+                      onClick={() => setExpandedBid(isExpanded ? null : bid.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
                     >
-                      {t('common.detail')}
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* BID DETAIL DIALOG */}
-      {selectedBid && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-extrabold text-lg text-slate-900">{t('bids.bidDetail')}</h3>
-                <p className="text-slate-500 text-xs mt-0.5">{t('bids.bidId', { id: selectedBid.id })}</p>
-              </div>
-              <button onClick={() => setSelectedBid(null)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">
-                ✕
-              </button>
-            </div>
+                {/* Expanded panel */}
+                {isExpanded && (
+                  <div className="border-t border-slate-100 bg-slate-50 p-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Cover letter */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">Cover Letter</p>
+                      <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line bg-white border border-slate-100 rounded-xl p-3 max-h-44 overflow-y-auto">
+                        {bid.coverLetter || <span className="text-slate-400 italic">Không có cover letter.</span>}
+                      </div>
+                    </div>
 
-            {/* Matching score breakdown */}
-            <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-bold text-slate-700">{t('bids.matchScoreLabel')}</span>
-                <span className="font-black text-blue-600 text-sm">{selectedBid.matchingScore}/100</span>
-              </div>
-              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-600" style={{ width: `${selectedBid.matchingScore}%` }} />
-              </div>
-              
-              <div className="space-y-1.5 pt-2 border-t border-slate-200/50 text-[11px] text-slate-600 leading-relaxed">
-                <p>{t('bids.ahpAnalysis')}</p>
-                <ul className="list-disc pl-4 space-y-0.5 text-slate-500">
-                  <li>{t('bids.ahpSkills')}</li>
-                  <li>{t('bids.ahpBudget', { amount: selectedBid.amount })}</li>
-                  <li>{selectedBid.matchingScore >= 80 ? t('bids.ahpVerified') : t('bids.ahpNotVerified')}</li>
-                </ul>
-              </div>
-            </div>
+                    {/* FL-13: Score breakdown */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                        Điểm Matching (FL-13)
+                      </p>
+                      {bid.matchBreakdown && bid.matchingScore != null ? (
+                        <MatchBreakdownPanel breakdown={bid.matchBreakdown} total={bid.matchingScore} />
+                      ) : (
+                        <div className="text-xs text-slate-400 text-center py-6 bg-white border border-slate-100 rounded-xl">
+                          Chưa có dữ liệu breakdown.
+                        </div>
+                      )}
+                    </div>
 
-            {/* Proposal Details */}
-            <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50/50 border border-slate-100 rounded-xl p-3">
-              <div>
-                <span className="text-slate-400">{t('bids.proposedBidPrice')}</span>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">${selectedBid.amount}</p>
+                    {/* Status-specific banners */}
+                    {bid.status === 'ACCEPTED' && (
+                      <div className="md:col-span-2 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
+                        <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800">Bid được chấp nhận!</p>
+                          <p className="text-xs text-emerald-600 mt-0.5">
+                            Vào tab <strong>"Quản lý hợp đồng"</strong> để xem contract và bắt đầu làm việc.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {bid.status === 'SHORTLISTED' && (
+                      <div className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
+                        <BookmarkCheck size={16} className="text-amber-600 shrink-0" />
+                        <p className="text-xs text-amber-700 font-semibold">
+                          Client đã shortlist bid của bạn — khả năng cao sẽ được chọn!
+                        </p>
+                      </div>
+                    )}
+                    {bid.status === 'REJECTED' && (
+                      <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-500">
+                        Bid bị từ chối. Hãy cải thiện cover letter và kỹ năng để tăng điểm matching.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <span className="text-slate-400">{t('bids.committedTime')}</span>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">{t('bids.completedIn', { days: selectedBid.days })}</p>
-              </div>
-            </div>
-
-            {/* Cover letter */}
-            <div className="space-y-1.5">
-              <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">{t('bids.coverLetterTitle')}</h4>
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-sans max-h-48 overflow-y-auto">
-                {selectedBid.coverLetter}
-              </div>
-            </div>
-
-            {selectedBid.fileName && (
-              <div className="text-xs flex items-center gap-1.5 text-slate-500">
-                <span>{t('bids.attachment')}</span>
-                <span className="font-bold text-blue-600 hover:underline cursor-pointer">{selectedBid.fileName}</span>
-              </div>
-            )}
-
-            <div className="pt-3 border-t border-slate-100 flex gap-2">
-              <button
-                onClick={() => setSelectedBid(null)}
-                className="flex-1 h-10 border border-slate-200 hover:bg-slate-50 rounded-xl font-semibold text-slate-700 text-sm"
-              >
-                {t('common.close')}
-              </button>
-              {selectedBid.status === 'PENDING' && (
-                <button
-                  onClick={() => {
-                    handleStartEdit(selectedBid);
-                    setSelectedBid(null);
-                  }}
-                  className="flex-1 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm"
-                >
-                  {t('bids.editBid')}
-                </button>
-              )}
-            </div>
-          </div>
+            );
+          })}
         </div>
       )}
 
-      {/* EDIT BID MODAL */}
+      {/* FL-14 Edit Modal */}
       {editingBid && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="font-bold text-lg text-slate-900 border-b border-slate-100 pb-2">{t('bids.editBidTitle')}</h3>
-            
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">{t('jobs.bidAmount')}</label>
-                  <input
-                    type="number"
-                    required
-                    value={editAmount}
-                    onChange={(e) => setEditAmount(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600">{t('jobs.bidDays')}</label>
-                  <input
-                    type="number"
-                    required
-                    value={editDays}
-                    onChange={(e) => setEditDays(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600">{t('bids.coverLetter')}</label>
-                <textarea
-                  rows={5}
-                  required
-                  value={editCover}
-                  onChange={(e) => setEditCover(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-slate-200 text-sm outline-none focus:border-blue-500 resize-none font-sans"
-                />
-              </div>
-
-              {editError && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-2.5 rounded-lg">{editError}</p>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingBid(null)}
-                  className="h-10 px-4 border border-slate-200 bg-white rounded-lg text-slate-700 font-semibold text-sm hover:bg-slate-50"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm shadow-sm"
-                >
-                  {t('bids.saveChanges')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditBidModal
+          bid={editingBid}
+          onClose={() => setEditingBid(null)}
+          onSaved={handleEditSaved}
+        />
       )}
     </div>
   );

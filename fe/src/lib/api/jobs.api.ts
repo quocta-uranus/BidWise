@@ -30,19 +30,7 @@ export interface JobResponse {
   matchScore?: number;
   skillMatch?: number;
   matchedSkills?: string[];
-  ahpWeight?: {
-    id: string;
-    jobId: string;
-    priceWeight: number;
-    skillWeight: number;
-    experienceWeight: number;
-    ratingWeight: number;
-    speedWeight: number;
-    deadlineWeight: number;
-    portfolioWeight: number;
-    createdAt: string;
-    updatedAt: string;
-  } | null;
+  ahpWeight?: AhpWeight | null;
 }
 
 export interface PaginationMeta {
@@ -95,6 +83,8 @@ export interface JobAlertUpdateParams {
 }
 
 export interface AhpWeight {
+  id?: string;
+  jobId?: string;
   priceWeight: number;
   skillWeight: number;
   experienceWeight: number;
@@ -102,10 +92,8 @@ export interface AhpWeight {
   speedWeight: number;
   deadlineWeight: number;
   portfolioWeight: number;
-}
-
-export function mapApiJobToJob(j: JobResponse) {
-  return j;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Backend wraps ALL responses in { success, data, timestamp } via TransformResponseInterceptor

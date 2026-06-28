@@ -1,76 +1,130 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
-import { ContractsService } from './contracts.service';
-import { CreateContractDto } from './dto/create-contract.dto';
-import { SubmitDeliverableDto } from './dto/submit-deliverable.dto';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Roles } from '../../common/decorators/roles.decorator';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { RoleType } from '@prisma/client';
+import { ContractsService } from './contracts.service';
+import {
+  CancelContractDto,
+  CreateContractDto,
+  ReviewMilestoneDto,
+  SubmitMilestoneDto,
+} from './dto/contracts.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AccessTokenPayload } from '../../common/types/jwt-payload.type';
 
-@Controller('contracts')
-export class ContractsController {
-  constructor(private readonly contractsService: ContractsService) {}
+// ─── Client Contract Routes ───────────────────────────────────────────────────
 
-  @Post('accept-bid')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('client/contracts')
+export class ClientContractsController {
+  constructor(private service: ContractsService) {}
+
+  // CL-18: Create contract from accepted bid
+  @Post()
   @Roles(RoleType.CLIENT)
-  createContract(@CurrentUser() user: any, @Body() createDto: CreateContractDto) {
-    return this.contractsService.createContract(user.sub, createDto.bidId);
+  create(@CurrentUser() user: AccessTokenPayload, @Body() dto: CreateContractDto) {
+    return this.service.createContract(user.sub, dto);
   }
 
-  @Post(':id/sign')
-  @Roles(RoleType.FREELANCER)
-  signContract(@CurrentUser() user: any, @Param('id') contractId: string) {
-    return this.contractsService.signContract(user.sub, contractId);
+  // CL-20: List client contracts
+  @Get()
+  @Roles(RoleType.CLIENT)
+  list(@CurrentUser() user: AccessTokenPayload, @Query('status') status?: string) {
+    return this.service.listContracts(user.sub, 'client', status as any);
   }
 
-  @Patch(':cId/milestones/:mId/progress')
-  @Roles(RoleType.FREELANCER)
-  updateMilestoneProgress(
-    @CurrentUser() user: any,
-    @Param('cId') contractId: string,
-    @Param('mId') milestoneId: string,
-    @Body('progress') progress: number,
+  @Get(':id')
+  @Roles(RoleType.CLIENT)
+  getOne(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.service.getContract(id, user.sub);
+  }
+
+  // CL-21: Client reviews milestone
+  @Patch(':id/milestones/:milestoneId/review')
+  @Roles(RoleType.CLIENT)
+  reviewMilestone(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body() dto: ReviewMilestoneDto,
   ) {
-    return this.contractsService.updateMilestoneProgress(user.sub, contractId, milestoneId, progress);
+    return this.service.reviewMilestone(id, milestoneId, user.sub, dto);
   }
 
-  @Post(':cId/milestones/:mId/submit')
+  // CL-22: Cancel contract
+  @Patch(':id/cancel')
+  @Roles(RoleType.CLIENT)
+  cancel(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body() dto: CancelContractDto,
+  ) {
+    return this.service.cancelContract(id, user.sub, dto);
+  }
+}
+
+// ─── Freelancer Contract Routes ───────────────────────────────────────────────
+
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('freelancer/contracts')
+export class FreelancerContractsController {
+  constructor(private service: ContractsService) {}
+
+  // FL-19: List contracts
+  @Get()
+  @Roles(RoleType.FREELANCER)
+  list(@CurrentUser() user: AccessTokenPayload, @Query('status') status?: string) {
+    return this.service.listContracts(user.sub, 'freelancer', status as any);
+  }
+
+  @Get(':id')
+  @Roles(RoleType.FREELANCER)
+  getOne(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.service.getContract(id, user.sub);
+  }
+
+  // FL-22: Submit milestone
+  @Post(':id/milestones/:milestoneId/submit')
   @Roles(RoleType.FREELANCER)
   submitMilestone(
-    @CurrentUser() user: any,
-    @Param('cId') contractId: string,
-    @Param('mId') milestoneId: string,
-    @Body() submitDto: SubmitDeliverableDto,
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body() dto: SubmitMilestoneDto,
   ) {
-    return this.contractsService.submitMilestone(user.sub, contractId, milestoneId, submitDto);
+    return this.service.submitMilestone(id, milestoneId, user.sub, dto);
   }
 
-  @Post(':cId/milestones/:mId/approve')
-  @Roles(RoleType.CLIENT)
-  approveMilestone(
-    @CurrentUser() user: any,
-    @Param('cId') contractId: string,
-    @Param('mId') milestoneId: string,
-  ) {
-    return this.contractsService.approveMilestone(user.sub, contractId, milestoneId);
-  }
-
-  @Post(':id/refund')
-  @Roles(RoleType.CLIENT)
-  requestRefund(@CurrentUser() user: any, @Param('id') contractId: string) {
-    return this.contractsService.requestRefund(user.sub, contractId);
-  }
-
-  @Get()
-  getContracts(@CurrentUser() user: any) {
-    return this.contractsService.getContracts(user.sub);
-  }
-
-  @Post(':id/review-client')
+  // FL-20: Update milestone progress
+  @Patch(':id/milestones/:milestoneId/progress')
   @Roles(RoleType.FREELANCER)
-  reviewClient(
-    @Param('id') contractId: string,
-    @Body('clientReviewed') clientReviewed: boolean,
+  updateProgress(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body('notes') notes: string,
   ) {
-    return this.contractsService.reviewClient(contractId, clientReviewed);
+    return this.service.updateMilestoneProgress(id, milestoneId, user.sub, notes);
+  }
+
+  // Cancel (both parties can cancel)
+  @Patch(':id/cancel')
+  @Roles(RoleType.FREELANCER)
+  cancel(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body() dto: CancelContractDto,
+  ) {
+    return this.service.cancelContract(id, user.sub, dto);
   }
 }

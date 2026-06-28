@@ -1,389 +1,330 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ContractStatus, MilestoneStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { SubmitDeliverableDto } from './dto/submit-deliverable.dto';
+import {
+  CancelContractDto,
+  CreateContractDto,
+  ReviewMilestoneDto,
+  SubmitMilestoneDto,
+} from './dto/contracts.dto';
 
 @Injectable()
 export class ContractsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-  async createContract(clientId: string, bidId: string) {
+  async createContract(clientId: string, dto: CreateContractDto) {
     const bid = await this.prisma.bid.findUnique({
-      where: { id: bidId },
-      include: { job: true },
+      where: { id: dto.bidId },
+      include: {
+        job: { select: { id: true, clientId: true, title: true } },
+        freelancer: { select: { id: true, fullName: true } },
+      },
     });
 
-    if (!bid || bid.status !== 'PENDING') {
-      throw new BadRequestException('Đề xuất thầu không hợp lệ hoặc đã được xử lý.');
+    if (!bid) throw new NotFoundException('BID_NOT_FOUND');
+    if (bid.job.clientId !== clientId) throw new ForbiddenException('NOT_JOB_OWNER');
+    if (bid.status !== 'ACCEPTED') throw new BadRequestException('BID_NOT_ACCEPTED');
+
+    const existing = await this.prisma.contract.findUnique({ where: { bidId: dto.bidId } });
+    if (existing) throw new BadRequestException('CONTRACT_ALREADY_EXISTS');
+
+    const totalPct = dto.milestones.reduce((s, m) => s + m.percentage, 0);
+    if (Math.abs(totalPct - 100) > 0.01) {
+      throw new BadRequestException('MILESTONE_PERCENTAGES_MUST_SUM_100');
     }
 
-    // Get client wallet
-    let wallet = await this.prisma.wallet.findUnique({
-      where: { userId: clientId },
-    });
-
-    if (!wallet) {
-      wallet = await this.prisma.wallet.create({
-        data: {
-          userId: clientId,
-          balance: 0,
-          escrow: 0,
-          totalEarned: 0,
-        },
-      });
-    }
-
-    if (wallet.balance < bid.amount) {
-      throw new BadRequestException('INSUFFICIENT_FUNDS');
-    }
-
-    const m1Amount = Math.round(bid.amount * 0.3);
-    const m2Amount = Math.round(bid.amount * 0.4);
-    const m3Amount = bid.amount - m1Amount - m2Amount;
+    const totalAmount = Number(bid.amount);
+    const now = new Date();
 
     return this.prisma.$transaction(async (tx) => {
-      // Lock balance in escrow
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          balance: { decrement: bid.amount },
-          escrow: { increment: bid.amount },
-        },
-      });
-
-      // Create transaction log
-      await tx.transaction.create({
-        data: {
-          walletId: wallet.id,
-          type: 'ESCROW',
-          amount: bid.amount,
-          description: `Ký quỹ hợp đồng: ${bid.job.title}`,
-          descKey: 'escrow',
-          descParams: { jobId: bid.jobId },
-          status: 'SUCCESS',
-        },
-      });
-
-      // Create contract
       const contract = await tx.contract.create({
         data: {
           jobId: bid.jobId,
+          bidId: bid.id,
+          clientId,
           freelancerId: bid.freelancerId,
-          amount: bid.amount,
-          status: 'SIGNED',
+          title: bid.job.title,
+          description: dto.description,
+          totalAmount,
+          customTerms: dto.customTerms,
+          status: 'ACTIVE',
+          startDate: now,
           milestones: {
-            create: [
-              { name: 'design', nameKey: 'design', amount: m1Amount, progress: 0, status: 'PENDING' },
-              { name: 'coding', nameKey: 'coding', amount: m2Amount, progress: 0, status: 'PENDING' },
-              { name: 'delivery', nameKey: 'delivery', amount: m3Amount, progress: 0, status: 'PENDING' },
-            ],
+            create: dto.milestones.map((m) => ({
+              order: m.order,
+              title: m.title,
+              description: m.description,
+              amount: Math.round((m.percentage / 100) * totalAmount * 100) / 100,
+              percentage: m.percentage,
+              deadline: new Date(m.deadline),
+              maxRevisions: m.maxRevisions ?? 3,
+            })),
           },
         },
         include: {
-          milestones: true,
-          job: true,
+          milestones: { orderBy: { order: 'asc' } },
+          client: { select: { id: true, fullName: true } },
+          freelancer: { select: { id: true, fullName: true } },
         },
       });
 
-      // Update bid status
-      await tx.bid.update({
-        where: { id: bidId },
-        data: { status: 'ACCEPTED' },
-      });
-
-      // Reject all other bids for this job
-      await tx.bid.updateMany({
-        where: { jobId: bid.jobId, id: { not: bidId } },
-        data: { status: 'REJECTED' },
-      });
-
-      // Update job status to IN_PROGRESS
-      await tx.job.update({
-        where: { id: bid.jobId },
-        data: { status: 'IN_PROGRESS' },
+      await tx.contractStatusLog.create({
+        data: {
+          contractId: contract.id,
+          action: 'CREATED',
+          toStatus: 'ACTIVE',
+          performedBy: clientId,
+        },
       });
 
       return contract;
     });
   }
 
-  async signContract(userId: string, contractId: string) {
+  async getContract(contractId: string, userId: string) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
-    });
-
-    if (!contract || contract.freelancerId !== userId) {
-      throw new BadRequestException('Hợp đồng không hợp lệ hoặc bạn không có quyền ký.');
-    }
-
-    if (contract.status !== 'SIGNED') {
-      throw new BadRequestException('Hợp đồng đã được ký hoặc đã hoàn thành.');
-    }
-
-    return this.prisma.contract.update({
-      where: { id: contractId },
-      data: { status: 'ACTIVE' },
-      include: { milestones: true, job: true },
-    });
-  }
-
-  async updateMilestoneProgress(userId: string, contractId: string, milestoneId: string, progress: number) {
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-    });
-
-    if (!contract || contract.freelancerId !== userId) {
-      throw new BadRequestException('Không tìm thấy hợp đồng hoặc bạn không có quyền cập nhật.');
-    }
-
-    return this.prisma.milestone.update({
-      where: { id: milestoneId },
-      data: { progress },
-    });
-  }
-
-  async submitMilestone(userId: string, contractId: string, milestoneId: string, submitDto: SubmitDeliverableDto) {
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-    });
-
-    if (!contract || contract.freelancerId !== userId) {
-      throw new BadRequestException('Không tìm thấy hợp đồng hoặc bạn không có quyền nộp.');
-    }
-
-    return this.prisma.milestone.update({
-      where: { id: milestoneId },
-      data: {
-        progress: 100,
-        status: 'SUBMITTED',
-        deliverable: submitDto.fileName,
-        deliverableDesc: submitDto.description,
-        submittedAt: new Date(),
-      },
-    });
-  }
-
-  async approveMilestone(clientId: string, contractId: string, milestoneId: string) {
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-      include: { job: true },
-    });
-
-    if (!contract || contract.job.clientId !== clientId) {
-      throw new BadRequestException('Hợp đồng không hợp lệ.');
-    }
-
-    const milestone = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-    });
-
-    if (!milestone || milestone.status !== 'SUBMITTED') {
-      throw new BadRequestException('Mốc thanh toán không ở trạng thái chờ phê duyệt.');
-    }
-
-    // Get client wallet
-    const clientWallet = await this.prisma.wallet.findUnique({
-      where: { userId: clientId },
-    });
-
-    // Get or create freelancer wallet
-    let freelancerWallet = await this.prisma.wallet.findUnique({
-      where: { userId: contract.freelancerId },
-    });
-
-    if (!freelancerWallet) {
-      freelancerWallet = await this.prisma.wallet.create({
-        data: {
-          userId: contract.freelancerId,
-          balance: 0,
-          escrow: 0,
-          totalEarned: 0,
-        },
-      });
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Update milestone status
-      const updatedMs = await tx.milestone.update({
-        where: { id: milestoneId },
-        data: { status: 'ACCEPTED' },
-      });
-
-      // Deduct client escrow
-      if (clientWallet) {
-        await tx.wallet.update({
-          where: { id: clientWallet.id },
-          data: { escrow: { decrement: milestone.amount } },
-        });
-      }
-
-      // Add to freelancer balance
-      await tx.wallet.update({
-        where: { id: freelancerWallet.id },
-        data: {
-          balance: { increment: milestone.amount },
-          totalEarned: { increment: milestone.amount },
-        },
-      });
-
-      // Create transaction for freelancer
-      await tx.transaction.create({
-        data: {
-          walletId: freelancerWallet.id,
-          type: 'EARNED',
-          amount: milestone.amount,
-          description: `Nghiệm thu cột mốc: ${milestone.name}`,
-          descKey: 'milestoneApproved',
-          descParams: {
-            jobId: contract.jobId,
-            milestoneKey: milestone.nameKey || 'design',
-          },
-          status: 'SUCCESS',
-        },
-      });
-
-      // If clientWallet exists, create transaction logs for client as well (outbound EARNED)
-      if (clientWallet) {
-        await tx.transaction.create({
-          data: {
-            walletId: clientWallet.id,
-            type: 'EARNED',
-            amount: milestone.amount,
-            description: `Giải ngân cột mốc: ${milestone.name}`,
-            descKey: 'milestoneApproved',
-            descParams: {
-              jobId: contract.jobId,
-              milestoneKey: milestone.nameKey || 'design',
-            },
-            status: 'SUCCESS',
-          },
-        });
-      }
-
-      // Check if all milestones are accepted
-      const allMilestones = await tx.milestone.findMany({
-        where: { contractId },
-      });
-
-      const allCompleted = allMilestones.every((m) =>
-        m.id === milestoneId ? true : m.status === 'ACCEPTED'
-      );
-
-      if (allCompleted) {
-        await tx.contract.update({
-          where: { id: contractId },
-          data: { status: 'COMPLETED' },
-        });
-
-        await tx.job.update({
-          where: { id: contract.jobId },
-          data: { status: 'COMPLETED' },
-        });
-      }
-
-      return updatedMs;
-    });
-  }
-
-  async requestRefund(clientId: string, contractId: string) {
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-      include: { job: true, milestones: true },
-    });
-
-    if (!contract || contract.job.clientId !== clientId) {
-      throw new BadRequestException('Hợp đồng không hợp lệ hoặc bạn không phải là chủ dự án.');
-    }
-
-    if (contract.status === 'COMPLETED') {
-      throw new BadRequestException('Hợp đồng đã hoàn thành, không thể yêu cầu hoàn tiền.');
-    }
-
-    const unreleasedMilestones = contract.milestones.filter((m) => m.status !== 'ACCEPTED');
-    const unreleasedAmount = unreleasedMilestones.reduce((sum, m) => sum + m.amount, 0);
-
-    if (unreleasedAmount <= 0) {
-      throw new BadRequestException('Không có số dư ký quỹ nào chưa giải ngân.');
-    }
-
-    const clientWallet = await this.prisma.wallet.findUnique({
-      where: { userId: clientId },
-    });
-
-    if (!clientWallet) {
-      throw new BadRequestException('Ví khách hàng không tồn tại.');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Refund to client wallet
-      await tx.wallet.update({
-        where: { id: clientWallet.id },
-        data: {
-          balance: { increment: unreleasedAmount },
-          escrow: { decrement: unreleasedAmount },
-        },
-      });
-
-      // Create transaction log
-      await tx.transaction.create({
-        data: {
-          walletId: clientWallet.id,
-          type: 'REFUND',
-          amount: unreleasedAmount,
-          description: `Hoàn trả ký quỹ hợp đồng: ${contract.job.title}`,
-          descKey: 'refund',
-          descParams: { jobId: contract.jobId },
-          status: 'SUCCESS',
-        },
-      });
-
-      // Update remaining milestones to PENDING, progress = 0
-      await tx.milestone.updateMany({
-        where: { contractId, status: { not: 'ACCEPTED' } },
-        data: { progress: 0, status: 'PENDING' },
-      });
-
-      // Update contract status to COMPLETED
-      await tx.contract.update({
-        where: { id: contractId },
-        data: { status: 'COMPLETED' },
-      });
-
-      // Close job status
-      await tx.job.update({
-        where: { id: contract.jobId },
-        data: { status: 'CLOSED' },
-      });
-
-      return { success: true };
-    });
-  }
-
-  async getContracts(userId: string) {
-    return this.prisma.contract.findMany({
-      where: {
-        OR: [
-          { job: { clientId: userId } },
-          { freelancerId: userId },
-        ],
-      },
       include: {
         milestones: {
-          orderBy: { createdAt: 'asc' },
+          orderBy: { order: 'asc' },
+          include: { deliverables: { orderBy: { uploadedAt: 'desc' } } },
         },
-        job: {
-          include: {
-            client: true,
-          },
-        },
+        client: { select: { id: true, fullName: true, avatarUrl: true } },
+        freelancer: { select: { id: true, fullName: true, avatarUrl: true } },
+        job: { select: { id: true, title: true, status: true } },
+        statusLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
+      },
+    });
+
+    if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
+    if (contract.clientId !== userId && contract.freelancerId !== userId) {
+      throw new ForbiddenException('NOT_CONTRACT_PARTY');
+    }
+
+    return contract;
+  }
+
+  async listContracts(userId: string, role: 'client' | 'freelancer', status?: ContractStatus) {
+    const where: any = {
+      ...(role === 'client' ? { clientId: userId } : { freelancerId: userId }),
+      ...(status ? { status } : {}),
+    };
+
+    return this.prisma.contract.findMany({
+      where,
+      include: {
+        milestones: { orderBy: { order: 'asc' }, select: { id: true, title: true, status: true, deadline: true, amount: true, percentage: true } },
+        client: { select: { id: true, fullName: true, avatarUrl: true } },
+        freelancer: { select: { id: true, fullName: true, avatarUrl: true } },
+        job: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async reviewClient(contractId: string, clientReviewed: boolean) {
-    return this.prisma.contract.update({
-      where: { id: contractId },
-      data: { clientReviewed },
+  // CL-21 / FL-22: Freelancer submits a milestone
+  async submitMilestone(contractId: string, milestoneId: string, freelancerId: string, dto: SubmitMilestoneDto) {
+    const { contract, milestone } = await this.getMilestoneForFreelancer(contractId, milestoneId, freelancerId);
+
+    if (!['NOT_STARTED', 'IN_PROGRESS', 'REJECTED', 'REVISION_REQUESTED'].includes(milestone.status)) {
+      throw new BadRequestException('MILESTONE_CANNOT_BE_SUBMITTED');
+    }
+
+    const autoApproveAt = new Date();
+    autoApproveAt.setDate(autoApproveAt.getDate() + contract.autoApprovalDays);
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.milestone.update({
+        where: { id: milestoneId },
+        data: {
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+          freelancerNotes: dto.freelancerNotes,
+          autoApproveAt,
+          ...(dto.deliverables?.length
+            ? {
+                deliverables: {
+                  create: dto.deliverables.map((d) => ({
+                    fileName: d.fileName,
+                    fileUrl: d.fileUrl,
+                    fileSize: d.fileSize,
+                    mimeType: d.mimeType,
+                    description: d.description,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: { deliverables: true },
+      });
+      return updated;
     });
+  }
+
+  // CL-21: Client reviews a milestone
+  async reviewMilestone(contractId: string, milestoneId: string, clientId: string, dto: ReviewMilestoneDto) {
+    const { contract, milestone } = await this.getMilestoneForClient(contractId, milestoneId, clientId);
+
+    if (milestone.status !== 'SUBMITTED') {
+      throw new BadRequestException('MILESTONE_NOT_SUBMITTED');
+    }
+
+    if (dto.action === 'APPROVED') {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const m = await tx.milestone.update({
+          where: { id: milestoneId },
+          data: {
+            status: 'APPROVED',
+            approvedAt: new Date(),
+            clientFeedback: dto.feedback,
+          },
+        });
+
+        // Check if all milestones are approved → complete contract
+        const allMilestones = await tx.milestone.findMany({ where: { contractId } });
+        const allApproved = allMilestones.every(
+          (ms) => ms.id === milestoneId || ms.status === 'APPROVED',
+        );
+
+        if (allApproved) {
+          await tx.contract.update({
+            where: { id: contractId },
+            data: { status: 'COMPLETED', completedAt: new Date() },
+          });
+          await tx.contractStatusLog.create({
+            data: {
+              contractId,
+              action: 'COMPLETED',
+              fromStatus: 'ACTIVE',
+              toStatus: 'COMPLETED',
+              performedBy: clientId,
+            },
+          });
+        }
+
+        await tx.contractStatusLog.create({
+          data: {
+            contractId,
+            action: 'MILESTONE_APPROVED',
+            toStatus: contract.status as ContractStatus,
+            performedBy: clientId,
+            metadata: { milestoneId },
+          },
+        });
+
+        return m;
+      });
+      return updated;
+    }
+
+    if (dto.action === 'REJECTED' || dto.action === 'REVISION_REQUESTED') {
+      if (dto.action === 'REJECTED' && milestone.revisionCount >= milestone.maxRevisions) {
+        throw new BadRequestException('MAX_REVISIONS_EXCEEDED');
+      }
+
+      return this.prisma.milestone.update({
+        where: { id: milestoneId },
+        data: {
+          status: dto.action === 'REJECTED' ? 'REJECTED' : 'REVISION_REQUESTED',
+          rejectedAt: dto.action === 'REJECTED' ? new Date() : undefined,
+          clientFeedback: dto.feedback,
+          revisionCount: { increment: 1 },
+        },
+      });
+    }
+
+    throw new BadRequestException('INVALID_REVIEW_ACTION');
+  }
+
+  // CL-22: Cancel contract
+  async cancelContract(contractId: string, userId: string, dto: CancelContractDto) {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
+    if (contract.clientId !== userId && contract.freelancerId !== userId) {
+      throw new ForbiddenException('NOT_CONTRACT_PARTY');
+    }
+    if (['COMPLETED', 'CANCELLED'].includes(contract.status)) {
+      throw new BadRequestException('CONTRACT_ALREADY_FINISHED');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.contract.update({
+        where: { id: contractId },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancelReason: dto.reason,
+        },
+      });
+
+      await tx.contractStatusLog.create({
+        data: {
+          contractId,
+          action: 'CANCELLED',
+          fromStatus: contract.status as ContractStatus,
+          toStatus: 'CANCELLED',
+          reason: dto.reason,
+          performedBy: userId,
+        },
+      });
+
+      // Reset job status back to CLOSED
+      await tx.job.update({
+        where: { id: contract.jobId },
+        data: { status: 'CLOSED' },
+      });
+
+      // Reset accepted bid to REJECTED
+      await tx.bid.update({
+        where: { id: contract.bidId },
+        data: { status: 'REJECTED' },
+      });
+
+      return updated;
+    });
+  }
+
+  // FL-20: Freelancer updates milestone progress notes
+  async updateMilestoneProgress(contractId: string, milestoneId: string, freelancerId: string, notes: string) {
+    const { milestone } = await this.getMilestoneForFreelancer(contractId, milestoneId, freelancerId);
+
+    if (['APPROVED', 'SUBMITTED'].includes(milestone.status)) {
+      throw new BadRequestException('MILESTONE_NOT_EDITABLE');
+    }
+
+    return this.prisma.milestone.update({
+      where: { id: milestoneId },
+      data: {
+        freelancerNotes: notes,
+        status: milestone.status === 'NOT_STARTED' ? 'IN_PROGRESS' : milestone.status,
+      },
+    });
+  }
+
+  private async getMilestoneForClient(contractId: string, milestoneId: string, clientId: string) {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
+    if (contract.clientId !== clientId) throw new ForbiddenException('NOT_CONTRACT_CLIENT');
+
+    const milestone = await this.prisma.milestone.findFirst({ where: { id: milestoneId, contractId } });
+    if (!milestone) throw new NotFoundException('MILESTONE_NOT_FOUND');
+
+    return { contract, milestone };
+  }
+
+  private async getMilestoneForFreelancer(contractId: string, milestoneId: string, freelancerId: string) {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
+    if (contract.freelancerId !== freelancerId) throw new ForbiddenException('NOT_CONTRACT_FREELANCER');
+
+    const milestone = await this.prisma.milestone.findFirst({ where: { id: milestoneId, contractId } });
+    if (!milestone) throw new NotFoundException('MILESTONE_NOT_FOUND');
+
+    return { contract, milestone };
   }
 }

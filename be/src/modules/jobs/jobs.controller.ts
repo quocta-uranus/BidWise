@@ -4,6 +4,7 @@ import { CreateJobDto, UpdateJobDto, JobSearchDto, JobSuggestionDto } from './dt
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { RoleType } from '@prisma/client';
 import { AccessTokenPayload } from '../../common/types/jwt-payload.type';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
@@ -22,13 +23,15 @@ class ToggleAlertDto {
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
-  // FL-07 & FL-08: List jobs with pagination, sorting, and filters
+  // FL-07 & FL-08: List jobs — public (AU-06)
+  @Public()
   @Get()
   findJobs(@Query() searchDto: JobSearchDto) {
     return this.jobsService.findJobs(searchDto);
   }
 
-  // FL-07: Get categories
+  // FL-07: Get categories — public
+  @Public()
   @Get('categories')
   getCategories() {
     return this.jobsService.getCategories();
@@ -133,6 +136,7 @@ export class JobsController {
     return this.jobsService.getFreelancerBids(user.sub);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.jobsService.findOneWithClient(id);

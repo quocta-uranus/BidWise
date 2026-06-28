@@ -23,9 +23,8 @@ function mapApiToProfile(api: ApiFreelancerProfile): FreelancerProfile {
     cv: api.cv
       ? {
           fileName: api.cv.fileName,
-          fileSize: api.cv.fileSize,
+          fileSize: String(api.cv.fileSize ?? ''),
           uploadedAt: api.cv.uploadedAt,
-          fileUrl: api.cv.fileUrl ?? undefined,
         }
       : null,
     portfolio: (api.portfolio ?? []).map((p) => ({
