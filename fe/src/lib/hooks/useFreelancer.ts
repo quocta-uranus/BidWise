@@ -7,6 +7,7 @@ import { resolveMilestoneKey } from '@/lib/i18n/demo-content';
 import { paymentsApi } from '@/lib/api/payments.api';
 import { contractsApi } from '@/lib/api/contracts.api';
 import { jobsApi } from '@/lib/api/jobs.api';
+import { useAuthStore } from '@/lib/auth/auth.store';
 
 export interface PortfolioItem {
   id: string;
@@ -637,7 +638,10 @@ export const useFreelancer = create<FreelancerStore>()(
 
       fetchContracts: async () => {
         try {
-          const rawContracts = await contractsApi.listFreelancerContracts();
+          const role = useAuthStore.getState().user?.roles?.[0];
+          const rawContracts = role === 'CLIENT'
+            ? await contractsApi.listClientContracts()
+            : await contractsApi.listFreelancerContracts();
           const mappedContracts = rawContracts.map((c: any) => ({
             id: c.id,
             jobId: c.jobId,

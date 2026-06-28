@@ -47,10 +47,7 @@ export default function ClientJobsTab() {
       setJobs(jobs);
       if (selectedJob) {
         const updatedSelected = jobs.find((j: any) => j.id === selectedJob.id);
-        if (updatedSelected) {
-          setSelectedJob(updatedSelected);
-          fetchBidsForJob(updatedSelected.id);
-        }
+        if (updatedSelected) setSelectedJob(updatedSelected);
       }
     } catch {
       // API unavailable - use mock data
