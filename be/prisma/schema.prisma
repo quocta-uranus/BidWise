@@ -112,7 +112,9 @@ model User {
   wallet              Wallet?
   freelancerProfile   FreelancerProfile?
   bookmarks           JobBookmark[]
-  jobAlerts          JobAlert?
+  jobAlerts           JobAlert?
+  reviewsGiven        Review[]           @relation("ReviewerRelation")
+  reviewsReceived     Review[]           @relation("RevieweeRelation")
 
   @@index([email])
   @@index([status])
@@ -449,11 +451,32 @@ model Contract {
   status         ContractStatus @default(SIGNED)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  clientReviewed Boolean        @default(false)
-  job            Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  milestones     Milestone[]
+  clientReviewed     Boolean        @default(false)
+  freelancerReviewed Boolean        @default(false)
+  job                Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  milestones         Milestone[]
+  review             Review?
 
   @@map("contracts")
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  contractId    String   @unique
+  reviewerId    String
+  revieweeId    String
+  qualityRating Float
+  commRating    Float
+  speedRating   Float
+  comment       String   @default("")
+  anonymous     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  reviewer      User     @relation("ReviewerRelation", fields: [reviewerId], references: [id])
+  reviewee      User     @relation("RevieweeRelation", fields: [revieweeId], references: [id])
+
+  @@map("reviews")
 }
 
 model Milestone {

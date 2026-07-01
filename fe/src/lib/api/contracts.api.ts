@@ -24,6 +24,7 @@ export interface Contract {
   createdAt: string;
   updatedAt: string;
   clientReviewed: boolean;
+  freelancerReviewed: boolean;
   milestones?: Milestone[];
   job?: {
     id: string;
@@ -68,11 +69,19 @@ export const contractsApi = {
   submitMilestone: async (
     contractId: string,
     milestoneId: string,
-    data: SubmitDeliverableDto,
+    file: File,
+    description: string,
   ): Promise<Milestone> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('description', description);
+
     const response = await apiClient.post(
       `/contracts/${contractId}/milestones/${milestoneId}/submit`,
-      data,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      },
     );
     return response.data.data;
   },
@@ -99,6 +108,20 @@ export const contractsApi = {
     const response = await apiClient.post(`/contracts/${contractId}/review-client`, {
       clientReviewed,
     });
+    return response.data.data;
+  },
+
+  reviewFreelancer: async (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    },
+  ): Promise<{ success: boolean }> => {
+    const response = await apiClient.post(`/contracts/${contractId}/review-freelancer`, reviewData);
     return response.data.data;
   },
 };

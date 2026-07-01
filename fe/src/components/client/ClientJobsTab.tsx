@@ -477,9 +477,13 @@ export default function ClientJobsTab() {
                                 {fl.avatar}
                               </div>
                               <div>
-                                <h5 className="font-bold text-slate-900 text-sm">{bid.clientName || fl.name}</h5>
-                                <p className="text-[10px] text-slate-400 font-semibold">{fl.title}</p>
-                                <p className="text-[9px] text-amber-500 font-semibold">{fl.rating}</p>
+                                <h5 className="font-bold text-slate-900 text-sm">{bid.freelancer?.fullName || bid.clientName || fl.name}</h5>
+                                <p className="text-[10px] text-slate-400 font-semibold">{bid.freelancer?.freelancerProfile?.experience || fl.title}</p>
+                                <p className="text-[9px] text-amber-500 font-semibold">
+                                  {bid.freelancer && bid.freelancer.reviewsCount !== undefined
+                                    ? `${bid.freelancer.rating} ⭐ (${bid.freelancer.reviewsCount} ${language === 'vi' ? 'đánh giá' : 'reviews'})`
+                                    : fl.rating}
+                                </p>
                               </div>
                             </div>
 
@@ -625,6 +629,45 @@ export default function ClientJobsTab() {
                 {selectedBid.coverLetter}
               </div>
             </div>
+
+            {/* Skill-Specific Reputation Matrix (Kokkodis CL-30) */}
+            {selectedBid.freelancer?.reputationMatrix && selectedBid.freelancer.reputationMatrix.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                    {language === 'vi' ? 'Uy tín Kỹ năng (Kokkodis)' : 'Skill Reputation Matrix'}
+                  </h4>
+                  <span className="text-[10px] text-slate-400 italic">
+                    {language === 'vi' ? '*Chống lạm phát điểm' : '*Prevents rating inflation'}
+                  </span>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-2 text-xs">
+                  {selectedBid.freelancer.reputationMatrix.map((item: any) => {
+                    const isDeficit = item.score < item.benchmark;
+                    const percent = Math.min(Math.max(item.score, 0), 100);
+                    return (
+                      <div key={item.skill} className="space-y-1">
+                        <div className="flex justify-between items-center text-[11px] font-semibold text-slate-700">
+                          <span>{item.skill}</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-slate-850 font-bold">{item.score}/100</span>
+                            <span className="text-[9px] text-slate-400 font-medium">(Benchmark: {item.benchmark})</span>
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden flex">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              isDeficit ? 'bg-amber-400' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="pt-3 border-t border-slate-100 flex gap-2">
               <button

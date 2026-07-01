@@ -1,6 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitDeliverableDto } from './dto/submit-deliverable.dto';
+import { ReviewFreelancerDto } from './dto/review-freelancer.dto';
+import { join, extname } from 'path';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, createReadStream } from 'fs';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class ContractsService {
@@ -141,7 +145,13 @@ export class ContractsService {
     });
   }
 
-  async submitMilestone(userId: string, contractId: string, milestoneId: string, submitDto: SubmitDeliverableDto) {
+  async submitMilestone(
+    userId: string,
+    contractId: string,
+    milestoneId: string,
+    description: string,
+    file: any,
+  ) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
     });
@@ -150,17 +160,84 @@ export class ContractsService {
       throw new BadRequestException('Không tìm thấy hợp đồng hoặc bạn không có quyền nộp.');
     }
 
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn file để nộp.');
+    }
+
+    const dir = join(process.cwd(), 'uploads', 'contracts', contractId, 'milestones', milestoneId);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    } else {
+      try {
+        const files = readdirSync(dir);
+        for (const f of files) {
+          unlinkSync(join(dir, f));
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    const ext = extname(file.originalname).toLowerCase() || '.bin';
+    const storedName = `${randomUUID()}${ext}`;
+    const storagePath = join(dir, storedName);
+    writeFileSync(storagePath, file.buffer);
+
     return this.prisma.milestone.update({
       where: { id: milestoneId },
       data: {
         progress: 100,
         status: 'SUBMITTED',
-        deliverable: submitDto.fileName,
-        deliverableDesc: submitDto.description,
+        deliverable: file.originalname,
+        deliverableDesc: description || '',
         submittedAt: new Date(),
       },
     });
   }
+
+  async downloadDeliverable(
+    userId: string,
+    contractId: string,
+    milestoneId: string,
+    res: any,
+  ) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: { job: true },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Không tìm thấy hợp đồng.');
+    }
+
+    const isAuthorized = contract.freelancerId === userId || contract.job.clientId === userId;
+    if (!isAuthorized) {
+      throw new ForbiddenException('Bạn không có quyền tải file này.');
+    }
+
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+    });
+
+    if (!milestone || !milestone.deliverable) {
+      throw new NotFoundException('Không tìm thấy file nộp bài cho cột mốc này.');
+    }
+
+    const dir = join(process.cwd(), 'uploads', 'contracts', contractId, 'milestones', milestoneId);
+    if (!existsSync(dir)) {
+      throw new NotFoundException('Thư mục file không tồn tại trên hệ thống.');
+    }
+
+    const files = readdirSync(dir);
+    if (files.length === 0) {
+      throw new NotFoundException('File đã bị xóa hoặc không tìm thấy trên đĩa.');
+    }
+
+    const filePath = join(dir, files[0]);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(milestone.deliverable)}"`);
+    createReadStream(filePath).pipe(res);
+  }
+
 
   async approveMilestone(clientId: string, contractId: string, milestoneId: string) {
     const contract = await this.prisma.contract.findUnique({
@@ -384,6 +461,49 @@ export class ContractsService {
     return this.prisma.contract.update({
       where: { id: contractId },
       data: { clientReviewed },
+    });
+  }
+
+  async reviewFreelancer(clientId: string, contractId: string, dto: ReviewFreelancerDto) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: { job: true },
+    });
+
+    if (!contract || contract.job.clientId !== clientId) {
+      throw new BadRequestException('Hợp đồng không hợp lệ hoặc bạn không phải là chủ dự án.');
+    }
+
+    if (contract.status !== 'COMPLETED') {
+      throw new BadRequestException('Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành.');
+    }
+
+    if (contract.freelancerReviewed) {
+      throw new BadRequestException('Bạn đã đánh giá freelancer cho hợp đồng này rồi.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create Review
+      const review = await tx.review.create({
+        data: {
+          contractId,
+          reviewerId: clientId,
+          revieweeId: contract.freelancerId,
+          qualityRating: dto.qualityRating,
+          commRating: dto.commRating,
+          speedRating: dto.speedRating,
+          comment: dto.comment || '',
+          anonymous: dto.anonymous || false,
+        },
+      });
+
+      // Update contract
+      await tx.contract.update({
+        where: { id: contractId },
+        data: { freelancerReviewed: true },
+      });
+
+      return { success: true, reviewId: review.id };
     });
   }
 }

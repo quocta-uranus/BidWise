@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFreelancer, Transaction } from '@/lib/hooks/useFreelancer';
+import { useFreelancerProfile } from '@/lib/hooks/useFreelancerProfile';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { localizeTransaction } from '@/lib/i18n/demo-content';
@@ -69,8 +70,13 @@ function StarRow({
 /* ── main component ───────────────────────────────────────────── */
 export default function EarningsTab() {
   const { wallet, contracts, bids, jobs, requestWithdrawal, depositFunds, reviewClient } = useFreelancer();
+  const { profile, loadProfile } = useFreelancerProfile();
   const { user } = useAuthStore();
   const { t, language } = useTranslation();
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const currentRole = user?.roles[0] || 'FREELANCER';
   const isClient = currentRole === 'CLIENT';
@@ -153,12 +159,10 @@ export default function EarningsTab() {
   }, [wallet.transactions, txSearch, txType, language]);
 
   /* ── reputation matrix ── */
-  const reputationMatrix = [
-    { skill: 'React / Next.js', score: 92, benchmark: 72 },
-    { skill: 'TypeScript', score: 88, benchmark: 65 },
-    { skill: 'NestJS / API Backend', score: 58, benchmark: 62 },
-    { skill: 'Docker / PostgreSQL', score: 67, benchmark: 60 },
-    { skill: 'React Native / Mobile', score: 45, benchmark: 55 },
+  const reputationMatrix = profile?.reputationMatrix || [
+    { skill: 'React / Next.js', score: 0, benchmark: 72 },
+    { skill: 'TypeScript', score: 0, benchmark: 65 },
+    { skill: 'NestJS / API Backend', score: 0, benchmark: 62 },
   ];
 
   /* ── withdraw handler ── */

@@ -199,12 +199,129 @@ export class JobsService {
   }
 
   async getBidsForJob(jobId: string) {
-    return this.prisma.bid.findMany({
+    const bids = await this.prisma.bid.findMany({
       where: { jobId },
       include: {
-        freelancer: true,
+        freelancer: {
+          include: {
+            freelancerProfile: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return Promise.all(
+      bids.map(async (bid) => {
+        const reviews = await this.prisma.review.findMany({
+          where: { revieweeId: bid.freelancerId },
+        });
+
+        const totalReviews = reviews.length;
+        let avgRating = 5.0;
+        if (totalReviews > 0) {
+          const sum = reviews.reduce((acc, r) => acc + (r.qualityRating + r.commRating + r.speedRating) / 3, 0);
+          avgRating = Math.round((sum / totalReviews) * 10) / 10;
+        }
+
+        const repMatrix = await this.calculateFreelancerReputation(
+          bid.freelancerId,
+          bid.freelancer.freelancerProfile?.skills || [],
+        );
+
+        return {
+          ...bid,
+          freelancer: {
+            ...bid.freelancer,
+            rating: avgRating,
+            reviewsCount: totalReviews,
+            reputationMatrix: repMatrix,
+          },
+        };
+      }),
+    );
+  }
+
+  private async calculateFreelancerReputation(freelancerId: string, profileSkills: string[]) {
+    const reviews = await this.prisma.review.findMany({
+      where: { revieweeId: freelancerId },
+      include: {
+        contract: {
+          include: {
+            job: {
+              include: {
+                jobSkills: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const skillStats: Record<string, { sum: number; count: number }> = {};
+
+    for (const review of reviews) {
+      const skills = review.contract.job.jobSkills.map(s => s.name);
+      const rating = (review.qualityRating + review.commRating + review.speedRating) / 3;
+      for (const skill of skills) {
+        const normalizedSkill = skill.trim();
+        if (!skillStats[normalizedSkill]) {
+          skillStats[normalizedSkill] = { sum: 0, count: 0 };
+        }
+        skillStats[normalizedSkill].sum += rating;
+        skillStats[normalizedSkill].count += 1;
+      }
+    }
+
+    const benchmarks: Record<string, number> = {
+      'React': 72,
+      'Next.js': 72,
+      'React / Next.js': 72,
+      'TypeScript': 65,
+      'NestJS': 62,
+      'NestJS / API Backend': 62,
+      'Node.js': 62,
+      'Docker': 60,
+      'PostgreSQL': 60,
+      'Docker / PostgreSQL': 60,
+      'React Native': 55,
+      'React Native / Mobile': 55,
+      'Tailwind CSS': 70,
+      'CSS': 60,
+    };
+
+    const displaySkills = profileSkills.length > 0 ? profileSkills : ['React / Next.js', 'TypeScript', 'NestJS / API Backend'];
+
+    return displaySkills.map(skill => {
+      const normalizedSkill = skill.trim();
+      let scoreSum = 0;
+      let reviewCount = 0;
+
+      for (const statSkill of Object.keys(skillStats)) {
+        if (statSkill.toLowerCase() === normalizedSkill.toLowerCase() || 
+            normalizedSkill.toLowerCase().includes(statSkill.toLowerCase()) ||
+            statSkill.toLowerCase().includes(normalizedSkill.toLowerCase())) {
+          scoreSum += skillStats[statSkill].sum;
+          reviewCount += skillStats[statSkill].count;
+        }
+      }
+
+      const score = reviewCount > 0 ? Math.round((scoreSum / reviewCount) * 20) : 0;
+      
+      let benchmark = 60;
+      for (const key of Object.keys(benchmarks)) {
+        if (normalizedSkill.toLowerCase().includes(key.toLowerCase())) {
+          benchmark = benchmarks[key];
+          break;
+        }
+      }
+
+      return {
+        skill,
+        score,
+        benchmark,
+        reviewsCount: reviewCount,
+      };
     });
   }
 
