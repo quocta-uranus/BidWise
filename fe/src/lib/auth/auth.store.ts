@@ -59,6 +59,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       get().clearAuth();
       // Clear React Query cache when logging out
       if (typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('bidwise:clearCache'));
+        } catch {}
         // Clear Zustand persist stores (freelancer & client demo data)
         try {
           localStorage.removeItem('bidwise-freelancer-store');

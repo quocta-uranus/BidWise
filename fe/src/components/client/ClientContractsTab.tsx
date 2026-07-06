@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { contractsApi, Contract } from '@/lib/api/contracts.api';
 import ContractCard from '@/components/contracts/ContractCard';
 import ContractDetail from '@/components/contracts/ContractDetail';
@@ -16,7 +16,7 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Đã hủy',
 };
 
-export default function ContractsTab() {
+export default function ClientContractsTab() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('ALL');
@@ -25,7 +25,7 @@ export default function ContractsTab() {
   const loadContracts = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await contractsApi.listFreelancerContracts();
+      const data = await contractsApi.listClientContracts();
       setContracts(data);
     } catch {
       toast.error('Không thể tải danh sách hợp đồng');
@@ -39,7 +39,7 @@ export default function ContractsTab() {
   const refreshSelected = async () => {
     if (selectedContract) {
       try {
-        const updated = await contractsApi.getFreelancerContract(selectedContract.id);
+        const updated = await contractsApi.getClientContract(selectedContract.id);
         setSelectedContract(updated);
       } catch {}
     }
@@ -50,8 +50,8 @@ export default function ContractsTab() {
     ? contracts
     : contracts.filter((c) => c.status === filterStatus);
 
-  const pendingSubmit = contracts.filter((c) =>
-    c.milestones.some((m) => ['NOT_STARTED', 'IN_PROGRESS', 'REVISION_REQUESTED'].includes(m.status))
+  const pendingReview = contracts.filter((c) =>
+    c.milestones.some((m) => m.status === 'SUBMITTED')
   ).length;
 
   return (
@@ -61,7 +61,7 @@ export default function ContractsTab() {
         {[
           { label: 'Tổng hợp đồng', value: contracts.length, color: 'text-slate-700' },
           { label: 'Đang thực hiện', value: contracts.filter((c) => c.status === 'ACTIVE').length, color: 'text-blue-600' },
-          { label: 'Cần hành động', value: pendingSubmit, color: 'text-amber-600' },
+          { label: 'Chờ nghiệm thu', value: pendingReview, color: 'text-amber-600' },
           { label: 'Hoàn thành', value: contracts.filter((c) => c.status === 'COMPLETED').length, color: 'text-emerald-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 rounded-2xl p-4 text-center">
@@ -98,12 +98,10 @@ export default function ContractsTab() {
         <div className="py-16 text-center space-y-3">
           <FileText size={40} className="mx-auto text-slate-200" />
           <p className="font-semibold text-slate-600">
-            {filterStatus === 'ALL'
-              ? 'Bạn chưa có hợp đồng nào.'
-              : `Không có hợp đồng ${STATUS_LABELS[filterStatus]?.toLowerCase()}.`}
+            {filterStatus === 'ALL' ? 'Chưa có hợp đồng nào.' : `Không có hợp đồng ${STATUS_LABELS[filterStatus]?.toLowerCase()}.`}
           </p>
           <p className="text-xs text-slate-400">
-            Hợp đồng xuất hiện sau khi bid của bạn được client chấp nhận.
+            Hợp đồng được tạo sau khi bạn chấp nhận bid từ freelancer.
           </p>
         </div>
       ) : (
@@ -112,7 +110,7 @@ export default function ContractsTab() {
             <ContractCard
               key={c.id}
               contract={c}
-              userRole="freelancer"
+              userRole="client"
               onClick={() => setSelectedContract(c)}
             />
           ))}
@@ -123,7 +121,7 @@ export default function ContractsTab() {
       {selectedContract && (
         <ContractDetail
           contract={selectedContract}
-          userRole="freelancer"
+          userRole="client"
           onClose={() => setSelectedContract(null)}
           onRefresh={refreshSelected}
         />

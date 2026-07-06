@@ -7,6 +7,7 @@ import { resolveMilestoneKey } from '@/lib/i18n/demo-content';
 import { paymentsApi } from '@/lib/api/payments.api';
 import { contractsApi } from '@/lib/api/contracts.api';
 import { jobsApi } from '@/lib/api/jobs.api';
+import { useAuthStore } from '@/lib/auth/auth.store';
 
 export interface PortfolioItem {
   id: string;
@@ -650,26 +651,30 @@ export const useFreelancer = create<FreelancerStore>()(
 
       fetchContracts: async () => {
         try {
-          const rawContracts = await contractsApi.getContracts();
+          const role = useAuthStore.getState().user?.roles?.[0];
+          const rawContracts = role === 'CLIENT'
+            ? await contractsApi.listClientContracts()
+            : await contractsApi.listFreelancerContracts();
           const mappedContracts = rawContracts.map((c: any) => ({
             id: c.id,
             jobId: c.jobId,
             jobTitle: c.job?.title || 'Unknown Job',
-            clientName: c.job?.client?.fullName || 'Client',
-            amount: c.amount,
+            clientName: c.client?.fullName || 'Client',
+            amount: c.totalAmount,
             status: c.status,
             createdAt: new Date(c.createdAt).toISOString().split('T')[0],
+<<<<<<< HEAD
             clientReviewed: c.clientReviewed,
             freelancerReviewed: c.freelancerReviewed,
             milestones: c.milestones.map((m: any) => ({
+=======
+            milestones: (c.milestones || []).map((m: any) => ({
+>>>>>>> main
               id: m.id,
-              name: m.name,
-              nameKey: m.nameKey,
+              name: m.title,
               amount: m.amount,
-              progress: m.progress,
-              status: m.status,
-              deliverable: m.deliverable || undefined,
-              deliverableDesc: m.deliverableDesc || undefined,
+              progress: m.status === 'APPROVED' ? 100 : m.status === 'SUBMITTED' ? 100 : m.status === 'IN_PROGRESS' ? 50 : 0,
+              status: m.status === 'APPROVED' ? 'ACCEPTED' : m.status === 'NOT_STARTED' ? 'PENDING' : m.status,
               submittedAt: m.submittedAt ? new Date(m.submittedAt).toISOString().split('T')[0] : undefined,
             })),
           }));
@@ -764,16 +769,16 @@ export const useFreelancer = create<FreelancerStore>()(
 
       signContract: async (contractId) => {
         try {
-          await contractsApi.signContract(contractId);
+          await contractsApi.updateMilestoneProgress(contractId, '', '');
           await get().fetchContracts();
         } catch (error) {
           console.error('signContract failed:', error);
         }
       },
 
-      updateMilestoneProgress: async (contractId, milestoneId, progress) => {
+      updateMilestoneProgress: async (contractId, milestoneId, _progress) => {
         try {
-          await contractsApi.updateMilestoneProgress(contractId, milestoneId, progress);
+          await contractsApi.updateMilestoneProgress(contractId, milestoneId, '');
           await get().fetchContracts();
         } catch (error) {
           console.error('updateMilestoneProgress failed:', error);
@@ -791,7 +796,7 @@ export const useFreelancer = create<FreelancerStore>()(
 
       clientApproveMilestone: async (contractId, milestoneId) => {
         try {
-          await contractsApi.approveMilestone(contractId, milestoneId);
+          await contractsApi.reviewMilestone(contractId, milestoneId, 'APPROVED');
           await get().fetchContracts();
           await get().fetchWallet();
           await get().fetchTransactions();
@@ -800,13 +805,8 @@ export const useFreelancer = create<FreelancerStore>()(
         }
       },
 
-      reviewClient: async (contractId) => {
-        try {
-          await contractsApi.reviewClient(contractId, true);
-          await get().fetchContracts();
-        } catch (error) {
-          console.error('reviewClient failed:', error);
-        }
+      reviewClient: async (_contractId) => {
+        // reviewClient removed in new API — no-op
       },
 
       reviewFreelancer: async (contractId, reviewData) => {
@@ -858,11 +858,11 @@ export const useFreelancer = create<FreelancerStore>()(
 
       requestRefund: async (contractId) => {
         try {
-          const res = await contractsApi.requestRefund(contractId);
+          await contractsApi.cancelClientContract(contractId, 'Client requested refund');
           await get().fetchContracts();
           await get().fetchWallet();
           await get().fetchTransactions();
-          return { success: res.success };
+          return { success: true };
         } catch (error: any) {
           console.error('requestRefund failed:', error);
           const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi yêu cầu hoàn tiền.';
@@ -872,7 +872,8 @@ export const useFreelancer = create<FreelancerStore>()(
 
       simulateClientAcceptBid: async (bidId) => {
         try {
-          await contractsApi.acceptBid(bidId);
+          // acceptBid removed — client now uses client-bids API to decide bids
+          console.warn('simulateClientAcceptBid: use client-bids API instead, bidId:', bidId);
           await get().fetchContracts();
           await get().fetchWallet();
           await get().fetchTransactions();

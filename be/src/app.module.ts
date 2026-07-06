@@ -24,6 +24,8 @@ import { JobsModule } from './modules/jobs/jobs.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { FreelancerModule } from './modules/freelancer/freelancer.module';
+import { BidsModule } from './modules/bids/bids.module';
+import { ClientBidsModule } from './modules/client-bids/client-bids.module';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { FreelancerModule } from './modules/freelancer/freelancer.module';
     PaymentsModule,
     ContractsModule,
     FreelancerModule,
+    BidsModule,
+    ClientBidsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
