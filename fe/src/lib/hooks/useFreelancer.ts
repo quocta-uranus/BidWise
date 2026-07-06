@@ -663,13 +663,9 @@ export const useFreelancer = create<FreelancerStore>()(
             amount: c.totalAmount,
             status: c.status,
             createdAt: new Date(c.createdAt).toISOString().split('T')[0],
-<<<<<<< HEAD
             clientReviewed: c.clientReviewed,
             freelancerReviewed: c.freelancerReviewed,
-            milestones: c.milestones.map((m: any) => ({
-=======
             milestones: (c.milestones || []).map((m: any) => ({
->>>>>>> main
               id: m.id,
               name: m.title,
               amount: m.amount,
