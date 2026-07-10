@@ -10,7 +10,7 @@ import LanguageSwitcher from '@/components/ui/LanguageSwitcher';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import { getJobTitle } from '@/lib/i18n/demo-content';
 import { jobsApi } from '@/lib/api/jobs.api';
-import { Inbox } from 'lucide-react';
+import { Inbox, Star } from 'lucide-react';
 
 // Import subcomponents
 import ProfileTab from '@/components/freelancer/ProfileTab';
@@ -488,7 +488,7 @@ export default function DashboardPage() {
             </Link>
             <button
               onClick={() => logout()}
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-650 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50 font-bold"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50 font-bold"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -682,6 +682,48 @@ export default function DashboardPage() {
                         )}
                       </div>
                     )}
+
+                    {/* Client Reviews Feed (Client only) */}
+                    {activeRole === 'CLIENT' && user.reviews && user.reviews.length > 0 && (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                          <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-700">
+                            {language === 'vi' ? 'Nhận xét gần đây từ Freelancer' : 'Recent Feedbacks from Freelancers'}
+                          </h3>
+                        </div>
+                        <div className="space-y-3.5">
+                          {user.reviews.map((r: any) => (
+                            <div key={r.id} className="bg-slate-50/50 border border-slate-100 rounded-xl p-3.5 space-y-2">
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="font-bold text-slate-800">{r.reviewerName}</span>
+                                <span className="text-slate-400 text-[10px] font-bold">{r.date}</span>
+                              </div>
+                              <div className="flex items-center gap-0.5">
+                                {Array.from({ length: 5 }).map((_, idx) => (
+                                  <Star
+                                    key={idx}
+                                    size={11}
+                                    className={
+                                      idx < Math.round(r.rating)
+                                        ? 'text-amber-400 fill-amber-400'
+                                        : 'text-slate-200'
+                                    }
+                                  />
+                                ))}
+                                <span className="text-[10px] text-slate-450 font-bold ml-1">
+                                  {r.rating.toFixed(1)}/5.0
+                                </span>
+                              </div>
+                              {r.comment && (
+                                <p className="text-xs text-slate-650 leading-relaxed italic bg-white p-2.5 rounded-lg border border-slate-100">
+                                  "{r.comment}"
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Right Column: Recommendations & completeness */}
@@ -705,6 +747,42 @@ export default function DashboardPage() {
                         {activeRole === 'CLIENT' ? (language === 'vi' ? 'Tìm Freelancers' : 'Find Freelancers') : t('dashboard.completeProfile')}
                       </button>
                     </div>
+
+                    {/* Client Rating Summary Card */}
+                    {activeRole === 'CLIENT' && user.reviews && user.reviews.length > 0 && (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
+                        <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                          <Star className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
+                          {language === 'vi' ? 'Đánh giá của tôi' : 'My Client Rating'}
+                        </h4>
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl font-black text-slate-800">
+                            {(user.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / user.reviews.length).toFixed(1)}
+                          </span>
+                          <div>
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: 5 }).map((_, idx) => {
+                                const avg = user.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / user.reviews.length;
+                                return (
+                                  <Star
+                                    key={idx}
+                                    size={12}
+                                    className={
+                                      idx < Math.round(avg)
+                                        ? 'text-amber-400 fill-amber-400'
+                                        : 'text-slate-200'
+                                    }
+                                  />
+                                );
+                              })}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1 font-semibold">
+                              {language === 'vi' ? `Dựa trên ${user.reviews.length} nhận xét` : `Based on ${user.reviews.length} reviews`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Skill Test Promotion (Freelancer Only) */}
                     {activeRole === 'FREELANCER' && !profile.assessmentCompleted && (

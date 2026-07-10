@@ -167,4 +167,18 @@ export const contractsApi = {
     const res = await api.post(`/client/contracts/${contractId}/review-freelancer`, reviewData);
     return res.data.data;
   },
+
+  reviewClient: async (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    },
+  ): Promise<{ success: boolean }> => {
+    const res = await api.post(`/freelancer/contracts/${contractId}/review-client`, reviewData);
+    return res.data.data;
+  },
 };

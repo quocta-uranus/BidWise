@@ -59,6 +59,13 @@ export interface ApiFreelancerProfile {
   assessmentLevel?: string;
   completeness?: ProfileCompleteness;
   reputationMatrix?: Array<{ skill: string; score: number; benchmark: number; reviewsCount: number }>;
+  reviews?: Array<{
+    id: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+    date: string;
+  }>;
 }
 
 export const freelancerApi = {

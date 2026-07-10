@@ -41,6 +41,13 @@ export interface FreelancerProfile {
   assessmentScore: number | null;
   assessmentLevel?: string;
   reputationMatrix?: Array<{ skill: string; score: number; benchmark: number; reviewsCount: number }>;
+  reviews?: Array<{
+    id: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+    date: string;
+  }>;
 }
 
 export interface Job {
@@ -177,7 +184,16 @@ interface FreelancerStore {
   updateMilestoneProgress: (contractId: string, milestoneId: string, progress: number) => Promise<void>;
   submitMilestoneDeliverable: (contractId: string, milestoneId: string, file: File, desc: string) => Promise<void>;
   clientApproveMilestone: (contractId: string, milestoneId: string) => Promise<void>;
-  reviewClient: (contractId: string) => Promise<void>;
+  reviewClient: (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    }
+  ) => Promise<{ success: boolean; error?: string }>;
   reviewFreelancer: (
     contractId: string,
     reviewData: {
@@ -801,8 +817,16 @@ export const useFreelancer = create<FreelancerStore>()(
         }
       },
 
-      reviewClient: async (_contractId) => {
-        // reviewClient removed in new API — no-op
+      reviewClient: async (contractId, reviewData) => {
+        try {
+          const res = await contractsApi.reviewClient(contractId, reviewData);
+          await get().fetchContracts();
+          return { success: res.success };
+        } catch (error: any) {
+          console.error('reviewClient failed:', error);
+          const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi đánh giá.';
+          return { success: false, error: errMsg };
+        }
       },
 
       reviewFreelancer: async (contractId, reviewData) => {

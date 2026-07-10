@@ -55,6 +55,13 @@ export interface FreelancerFullProfile {
     portfolioItems: any[];
     certificates: any[];
   } | null;
+  reviews?: Array<{
+    id: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+    date: string;
+  }>;
 }
 
 export const clientBidsApi = {
