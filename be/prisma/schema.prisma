@@ -468,7 +468,7 @@ model Transaction {
 
 model Review {
   id            String   @id @default(cuid())
-  contractId    String   @unique
+  contractId    String
   reviewerId    String
   revieweeId    String
   qualityRating Float
@@ -616,7 +616,7 @@ model Contract {
   freelancer   User                 @relation("FreelancerContracts", fields: [freelancerId], references: [id])
   milestones   Milestone[]
   statusLogs   ContractStatusLog[]
-  review             Review?
+  reviews      Review[]
 
   @@index([clientId])
   @@index([freelancerId])
