@@ -113,9 +113,25 @@ export class FreelancerService {
     if (!profile) throw new NotFoundException('FREELANCER_PROFILE_NOT_FOUND');
     const formatted = this.formatProfile(profile);
     const reputationMatrix = await this.calculateSkillReputation(userId, profile.skills);
+
+    const reviews = await this.prisma.review.findMany({
+      where: { revieweeId: userId },
+      include: {
+        reviewer: { select: { fullName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     return {
       ...formatted,
       reputationMatrix,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
+        rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+        comment: r.comment,
+        date: r.createdAt.toISOString().split('T')[0],
+      })),
     };
   }
 

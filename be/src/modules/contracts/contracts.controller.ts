@@ -152,6 +152,17 @@ export class FreelancerContractsController {
   ) {
     return this.service.cancelContract(id, user.sub, dto);
   }
+
+  // Freelancer reviews Client
+  @Post(':id/review-client')
+  @Roles(RoleType.FREELANCER)
+  reviewClient(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body() dto: ReviewFreelancerDto,
+  ) {
+    return this.service.reviewClient(user.sub, id, dto);
+  }
 }
 
 // ─── Shared Contracts Controller ──────────────────────────────────────────────

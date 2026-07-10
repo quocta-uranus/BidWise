@@ -46,6 +46,41 @@ export class ContractsService {
     const now = new Date();
 
     return this.prisma.$transaction(async (tx) => {
+      let clientWallet = await tx.wallet.findUnique({
+        where: { userId: clientId },
+      });
+      if (!clientWallet) {
+        clientWallet = await tx.wallet.create({
+          data: { userId: clientId, balance: 0, escrow: 0, totalEarned: 0 },
+        });
+      }
+
+      if (clientWallet.balance < totalAmount) {
+        throw new BadRequestException('INSUFFICIENT_FUNDS_FOR_ESCROW');
+      }
+
+      await tx.wallet.update({
+        where: { id: clientWallet.id },
+        data: {
+          balance: { decrement: totalAmount },
+          escrow: { increment: totalAmount },
+        },
+      });
+
+      await tx.transaction.create({
+        data: {
+          walletId: clientWallet.id,
+          type: 'ESCROW',
+          amount: totalAmount,
+          description: `Ký quỹ hợp đồng: ${bid.job.title}`,
+          descKey: 'escrowLock',
+          descParams: {
+            jobId: bid.jobId,
+          },
+          status: 'SUCCESS',
+        },
+      });
+
       const contract = await tx.contract.create({
         data: {
           jobId: bid.jobId,
@@ -432,6 +467,49 @@ export class ContractsService {
       await tx.contract.update({
         where: { id: contractId },
         data: { freelancerReviewed: true },
+      });
+
+      return { success: true, reviewId: review.id };
+    });
+  }
+
+  // Freelancer reviews Client
+  async reviewClient(freelancerId: string, contractId: string, dto: ReviewFreelancerDto) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract || contract.freelancerId !== freelancerId) {
+      throw new BadRequestException('Hợp đồng không hợp lệ hoặc bạn không phải là freelancer của dự án.');
+    }
+
+    if (contract.status !== 'COMPLETED') {
+      throw new BadRequestException('Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành.');
+    }
+
+    if (contract.clientReviewed) {
+      throw new BadRequestException('Bạn đã đánh giá client cho hợp đồng này rồi.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create Review
+      const review = await tx.review.create({
+        data: {
+          contractId,
+          reviewerId: freelancerId,
+          revieweeId: contract.clientId,
+          qualityRating: dto.qualityRating,
+          commRating: dto.commRating,
+          speedRating: dto.speedRating,
+          comment: dto.comment || '',
+          anonymous: dto.anonymous || false,
+        },
+      });
+
+      // Update contract
+      await tx.contract.update({
+        where: { id: contractId },
+        data: { clientReviewed: true },
       });
 
       return { success: true, reviewId: review.id };
