@@ -1,70 +1,83 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { X, AlertOctagon } from 'lucide-react';
-import { Contract, contractsApi } from '@/lib/api/contracts.api';
-import MilestoneTimeline from './MilestoneTimeline';
-import { toast } from 'sonner';
+import { useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import { X, AlertOctagon, MessageSquare } from "lucide-react";
+import { Contract, contractsApi } from "@/lib/api/contracts.api";
+import { createConversation } from "@/lib/api/chat.api";
+import MilestoneTimeline from "./MilestoneTimeline";
+import { toast } from "sonner";
 
 interface Props {
   contract: Contract;
-  userRole: 'client' | 'freelancer';
+  userRole: "client" | "freelancer";
   onClose: () => void;
   onRefresh: () => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Draft',
-  ACTIVE: 'Đang thực hiện',
-  PAUSED: 'Tạm dừng',
-  COMPLETED: 'Hoàn thành',
-  DISPUTED: 'Tranh chấp',
-  CANCELLED: 'Đã hủy',
+  DRAFT: "Draft",
+  ACTIVE: "Đang thực hiện",
+  PAUSED: "Tạm dừng",
+  COMPLETED: "Hoàn thành",
+  DISPUTED: "Tranh chấp",
+  CANCELLED: "Đã hủy",
 };
 
-export default function ContractDetail({ contract, userRole, onClose, onRefresh }: Props) {
+export default function ContractDetail({
+  contract,
+  userRole,
+  onClose,
+  onRefresh,
+}: Props) {
+  const router = useRouter();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [openingChat, setOpeningChat] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
+  const [cancelReason, setCancelReason] = useState("");
   const [feedbackModal, setFeedbackModal] = useState<{
     milestoneId: string;
-    action: 'approve' | 'revision' | 'reject';
+    action: "approve" | "revision" | "reject";
   } | null>(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState("");
   const [submitModal, setSubmitModal] = useState<string | null>(null);
-  const [submitNotes, setSubmitNotes] = useState('');
-  const [deliverables, setDeliverables] = useState<{ fileName: string; fileUrl: string; description: string }[]>([
-    { fileName: '', fileUrl: '', description: '' },
-  ]);
+  const [submitNotes, setSubmitNotes] = useState("");
+  const [deliverables, setDeliverables] = useState<
+    { fileName: string; fileUrl: string; description: string }[]
+  >([{ fileName: "", fileUrl: "", description: "" }]);
 
   const handleMilestoneAction = (milestoneId: string, action: string) => {
-    if (action === 'submit') {
+    if (action === "submit") {
       setSubmitModal(milestoneId);
-    } else if (action === 'approve') {
-      setFeedbackModal({ milestoneId, action: 'approve' });
-    } else if (action === 'revision') {
-      setFeedbackModal({ milestoneId, action: 'revision' });
-    } else if (action === 'reject') {
-      setFeedbackModal({ milestoneId, action: 'reject' });
+    } else if (action === "approve") {
+      setFeedbackModal({ milestoneId, action: "approve" });
+    } else if (action === "revision") {
+      setFeedbackModal({ milestoneId, action: "revision" });
+    } else if (action === "reject") {
+      setFeedbackModal({ milestoneId, action: "reject" });
     }
   };
 
   const executeSubmit = async () => {
     if (!submitModal) return;
     setActionLoading(submitModal);
-    const validDeliverables = deliverables.filter((d) => d.fileName.trim() && d.fileUrl.trim());
+    const validDeliverables = deliverables.filter(
+      (d) => d.fileName.trim() && d.fileUrl.trim(),
+    );
     try {
       await contractsApi.submitMilestone(contract.id, submitModal, {
         freelancerNotes: submitNotes,
-        deliverables: validDeliverables.length > 0 ? validDeliverables : undefined,
+        deliverables:
+          validDeliverables.length > 0 ? validDeliverables : undefined,
       });
-      toast.success('Đã nộp milestone thành công!');
+      toast.success("Đã nộp milestone thành công!");
       setSubmitModal(null);
-      setSubmitNotes('');
-      setDeliverables([{ fileName: '', fileUrl: '', description: '' }]);
+      setSubmitNotes("");
+      setDeliverables([{ fileName: "", fileUrl: "", description: "" }]);
       onRefresh();
     } catch (e: any) {
-      toast.error(e.response?.data?.message ?? 'Thất bại');
+      toast.error(e.response?.data?.message ?? "Thất bại");
     } finally {
       setActionLoading(null);
     }
@@ -74,9 +87,9 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
     if (!feedbackModal) return;
     setActionLoading(feedbackModal.milestoneId);
     const actionMap = {
-      approve: 'APPROVED' as const,
-      revision: 'REVISION_REQUESTED' as const,
-      reject: 'REJECTED' as const,
+      approve: "APPROVED" as const,
+      revision: "REVISION_REQUESTED" as const,
+      reject: "REJECTED" as const,
     };
     try {
       await contractsApi.reviewMilestone(
@@ -86,17 +99,17 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
         feedback,
       );
       toast.success(
-        feedbackModal.action === 'approve'
-          ? 'Đã duyệt milestone!'
-          : feedbackModal.action === 'revision'
-          ? 'Đã gửi yêu cầu sửa đổi'
-          : 'Đã từ chối milestone',
+        feedbackModal.action === "approve"
+          ? "Đã duyệt milestone!"
+          : feedbackModal.action === "revision"
+            ? "Đã gửi yêu cầu sửa đổi"
+            : "Đã từ chối milestone",
       );
       setFeedbackModal(null);
-      setFeedback('');
+      setFeedback("");
       onRefresh();
     } catch (e: any) {
-      toast.error(e.response?.data?.message ?? 'Thất bại');
+      toast.error(e.response?.data?.message ?? "Thất bại");
     } finally {
       setActionLoading(null);
     }
@@ -104,23 +117,46 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
 
   const executeCancel = async () => {
     if (!cancelReason.trim()) {
-      toast.error('Vui lòng nhập lý do hủy');
+      toast.error("Vui lòng nhập lý do hủy");
       return;
     }
-    setActionLoading('cancel');
+    setActionLoading("cancel");
     try {
-      if (userRole === 'client') {
+      if (userRole === "client") {
         await contractsApi.cancelClientContract(contract.id, cancelReason);
       } else {
         await contractsApi.cancelFreelancerContract(contract.id, cancelReason);
       }
-      toast.success('Đã hủy hợp đồng');
+      toast.success("Đã hủy hợp đồng");
       setShowCancel(false);
       onRefresh();
     } catch (e: any) {
-      toast.error(e.response?.data?.message ?? 'Thất bại');
+      toast.error(e.response?.data?.message ?? "Thất bại");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const openChat = async () => {
+    setOpeningChat(true);
+    try {
+      const conversation = await createConversation({
+        otherUserId:
+          userRole === "client" ? contract.freelancerId : contract.clientId,
+        jobId: contract.jobId,
+      });
+      onClose();
+      router.push(
+        `/messages?conversation=${encodeURIComponent(conversation.id)}`,
+      );
+    } catch (error: unknown) {
+      toast.error(
+        axios.isAxiosError(error)
+          ? (error.response?.data?.message ?? "Không thể mở cuộc trò chuyện")
+          : "Không thể mở cuộc trò chuyện",
+      );
+    } finally {
+      setOpeningChat(false);
     }
   };
 
@@ -137,28 +173,47 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              {userRole === 'client' ? 'Freelancer' : 'Client'}:{' '}
-              {userRole === 'client' ? contract.freelancer.fullName : contract.client.fullName}
-              {' · '}${contract.totalAmount.toLocaleString()}
+              {userRole === "client" ? "Freelancer" : "Client"}:{" "}
+              {userRole === "client"
+                ? contract.freelancer.fullName
+                : contract.client.fullName}
+              {" · "}${contract.totalAmount.toLocaleString()}
             </p>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openChat}
+              disabled={openingChat}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              <MessageSquare size={14} />{" "}
+              {openingChat ? "Đang mở..." : "Nhắn tin"}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1 text-slate-400 hover:text-slate-700"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="p-5 space-y-5">
           {/* Contract info */}
           {contract.description && (
             <div className="bg-slate-50 rounded-xl p-3.5">
-              <p className="text-xs text-slate-500 font-semibold mb-1">Mô tả hợp đồng</p>
+              <p className="text-xs text-slate-500 font-semibold mb-1">
+                Mô tả hợp đồng
+              </p>
               <p className="text-sm text-slate-700">{contract.description}</p>
             </div>
           )}
 
           {/* Milestones */}
           <div>
-            <h3 className="font-semibold text-slate-900 text-sm mb-3">Milestones</h3>
+            <h3 className="font-semibold text-slate-900 text-sm mb-3">
+              Milestones
+            </h3>
             <MilestoneTimeline
               milestones={contract.milestones}
               totalAmount={contract.totalAmount}
@@ -169,7 +224,7 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
           </div>
 
           {/* Cancel button */}
-          {['ACTIVE', 'PAUSED'].includes(contract.status) && (
+          {["ACTIVE", "PAUSED"].includes(contract.status) && (
             <div className="pt-3 border-t border-slate-100">
               <button
                 onClick={() => setShowCancel(true)}
@@ -186,11 +241,15 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
       {submitModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="font-bold text-slate-900">Nộp nghiệm thu milestone — FL-22</h3>
+            <h3 className="font-bold text-slate-900">
+              Nộp nghiệm thu milestone — FL-22
+            </h3>
 
             {/* FL-20: progress notes */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ghi chú tiến độ (FL-20)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Ghi chú tiến độ (FL-20)
+              </label>
               <textarea
                 value={submitNotes}
                 onChange={(e) => setSubmitNotes(e.target.value)}
@@ -203,10 +262,17 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
             {/* FL-21: Deliverables */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-slate-700">Sản phẩm bàn giao (FL-21)</label>
+                <label className="text-xs font-semibold text-slate-700">
+                  Sản phẩm bàn giao (FL-21)
+                </label>
                 <button
                   type="button"
-                  onClick={() => setDeliverables((prev) => [...prev, { fileName: '', fileUrl: '', description: '' }])}
+                  onClick={() =>
+                    setDeliverables((prev) => [
+                      ...prev,
+                      { fileName: "", fileUrl: "", description: "" },
+                    ])
+                  }
                   className="text-xs text-blue-600 hover:text-blue-700"
                 >
                   + Thêm file
@@ -214,13 +280,22 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
               </div>
               <div className="space-y-3">
                 {deliverables.map((d, idx) => (
-                  <div key={idx} className="border border-slate-200 rounded-xl p-3 space-y-2">
+                  <div
+                    key={idx}
+                    className="border border-slate-200 rounded-xl p-3 space-y-2"
+                  >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">File {idx + 1}</span>
+                      <span className="text-xs text-slate-500">
+                        File {idx + 1}
+                      </span>
                       {deliverables.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => setDeliverables((prev) => prev.filter((_, i) => i !== idx))}
+                          onClick={() =>
+                            setDeliverables((prev) =>
+                              prev.filter((_, i) => i !== idx),
+                            )
+                          }
                           className="text-xs text-rose-400 hover:text-rose-600"
                         >
                           Xóa
@@ -229,19 +304,43 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
                     </div>
                     <input
                       value={d.fileName}
-                      onChange={(e) => setDeliverables((prev) => prev.map((item, i) => i === idx ? { ...item, fileName: e.target.value } : item))}
+                      onChange={(e) =>
+                        setDeliverables((prev) =>
+                          prev.map((item, i) =>
+                            i === idx
+                              ? { ...item, fileName: e.target.value }
+                              : item,
+                          ),
+                        )
+                      }
                       className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="Tên file (vd: final-design.fig)"
                     />
                     <input
                       value={d.fileUrl}
-                      onChange={(e) => setDeliverables((prev) => prev.map((item, i) => i === idx ? { ...item, fileUrl: e.target.value } : item))}
+                      onChange={(e) =>
+                        setDeliverables((prev) =>
+                          prev.map((item, i) =>
+                            i === idx
+                              ? { ...item, fileUrl: e.target.value }
+                              : item,
+                          ),
+                        )
+                      }
                       className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="URL file (Google Drive, GitHub, Figma...)"
                     />
                     <input
                       value={d.description}
-                      onChange={(e) => setDeliverables((prev) => prev.map((item, i) => i === idx ? { ...item, description: e.target.value } : item))}
+                      onChange={(e) =>
+                        setDeliverables((prev) =>
+                          prev.map((item, i) =>
+                            i === idx
+                              ? { ...item, description: e.target.value }
+                              : item,
+                          ),
+                        )
+                      }
                       className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="Mô tả ngắn (tùy chọn)"
                     />
@@ -252,7 +351,12 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
 
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => { setSubmitModal(null); setDeliverables([{ fileName: '', fileUrl: '', description: '' }]); }}
+                onClick={() => {
+                  setSubmitModal(null);
+                  setDeliverables([
+                    { fileName: "", fileUrl: "", description: "" },
+                  ]);
+                }}
                 className="flex-1 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
               >
                 Hủy
@@ -262,7 +366,7 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
                 disabled={!!actionLoading}
                 className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50"
               >
-                {actionLoading ? '...' : 'Nộp nghiệm thu'}
+                {actionLoading ? "..." : "Nộp nghiệm thu"}
               </button>
             </div>
           </div>
@@ -274,15 +378,18 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
             <h3 className="font-bold text-slate-900">
-              {feedbackModal.action === 'approve'
-                ? 'Duyệt milestone'
-                : feedbackModal.action === 'revision'
-                ? 'Yêu cầu sửa đổi'
-                : 'Từ chối milestone'}
+              {feedbackModal.action === "approve"
+                ? "Duyệt milestone"
+                : feedbackModal.action === "revision"
+                  ? "Yêu cầu sửa đổi"
+                  : "Từ chối milestone"}
             </h3>
             <div>
               <label className="block text-xs text-slate-600 mb-1.5">
-                Feedback {feedbackModal.action !== 'approve' ? '(bắt buộc)' : '(tùy chọn)'}
+                Feedback{" "}
+                {feedbackModal.action !== "approve"
+                  ? "(bắt buộc)"
+                  : "(tùy chọn)"}
               </label>
               <textarea
                 value={feedback}
@@ -303,14 +410,14 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
                 onClick={executeReview}
                 disabled={!!actionLoading}
                 className={`flex-1 py-2 rounded-xl text-white text-sm font-semibold disabled:opacity-50 ${
-                  feedbackModal.action === 'approve'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : feedbackModal.action === 'revision'
-                    ? 'bg-orange-500 hover:bg-orange-600'
-                    : 'bg-rose-500 hover:bg-rose-600'
+                  feedbackModal.action === "approve"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : feedbackModal.action === "revision"
+                      ? "bg-orange-500 hover:bg-orange-600"
+                      : "bg-rose-500 hover:bg-rose-600"
                 }`}
               >
-                {actionLoading ? '...' : 'Xác nhận'}
+                {actionLoading ? "..." : "Xác nhận"}
               </button>
             </div>
           </div>
@@ -321,12 +428,17 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
       {showCancel && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
-            <h3 className="font-bold text-slate-900 text-rose-600">Hủy hợp đồng</h3>
+            <h3 className="font-bold text-slate-900 text-rose-600">
+              Hủy hợp đồng
+            </h3>
             <p className="text-sm text-slate-600">
-              Hành động này không thể hoàn tác. Các milestone chưa được duyệt sẽ được hoàn tiền.
+              Hành động này không thể hoàn tác. Các milestone chưa được duyệt sẽ
+              được hoàn tiền.
             </p>
             <div>
-              <label className="block text-xs text-slate-600 mb-1.5">Lý do hủy *</label>
+              <label className="block text-xs text-slate-600 mb-1.5">
+                Lý do hủy *
+              </label>
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
@@ -347,7 +459,7 @@ export default function ContractDetail({ contract, userRole, onClose, onRefresh 
                 disabled={!!actionLoading}
                 className="flex-1 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 disabled:opacity-50"
               >
-                {actionLoading ? '...' : 'Hủy hợp đồng'}
+                {actionLoading ? "..." : "Hủy hợp đồng"}
               </button>
             </div>
           </div>
