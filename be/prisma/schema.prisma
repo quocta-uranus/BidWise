@@ -147,6 +147,9 @@ model User {
   jobAlerts           JobAlert?
   clientContracts     Contract[]         @relation("ClientContracts")
   freelancerContracts Contract[]         @relation("FreelancerContracts")
+  clientConversations     Conversation[] @relation("ClientConversations")
+  freelancerConversations Conversation[] @relation("FreelancerConversations")
+  sentMessages            Message[]      @relation("MessageSender")
 
   @@index([email])
   @@index([status])
@@ -662,4 +665,44 @@ model ContractStatusLog {
 
   @@index([contractId])
   @@map("contract_status_logs")
+}
+
+// ─── CHAT TABLES ──────────────────────────────────────────────────────────────
+
+model Conversation {
+  id           String   @id @default(cuid())
+  clientId     String
+  freelancerId String
+  jobId        String?
+  // A non-null key makes a direct conversation unique as well (PostgreSQL
+  // considers NULL values distinct in compound unique constraints).
+  scopeKey     String   @unique
+  lastMessageAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client     User      @relation("ClientConversations", fields: [clientId], references: [id], onDelete: Cascade)
+  freelancer User      @relation("FreelancerConversations", fields: [freelancerId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@unique([clientId, freelancerId, jobId])
+  @@index([clientId])
+  @@index([freelancerId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  text           String
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@map("messages")
 }
