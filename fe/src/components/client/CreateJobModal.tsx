@@ -27,6 +27,30 @@ const AUCTION_TYPES = [
   },
 ];
 
+const AHP_PRESETS = [
+  {
+    id: 'BEST_VALUE',
+    icon: '⚖️',
+    label: { vi: 'Giá tốt nhất', en: 'Best Value' },
+    desc: { vi: 'Ưu tiên giá thấp & kỹ năng', en: 'Price + skill balanced' },
+    weights: { priceWeight: 40, skillWeight: 25, experienceWeight: 10, ratingWeight: 10, speedWeight: 5, deadlineWeight: 5, portfolioWeight: 5 },
+  },
+  {
+    id: 'QUALITY_FIRST',
+    icon: '🏆',
+    label: { vi: 'Chất lượng cao', en: 'Quality First' },
+    desc: { vi: 'Kỹ năng & đánh giá là ưu tiên', en: 'Skills & rating priority' },
+    weights: { priceWeight: 10, skillWeight: 35, experienceWeight: 15, ratingWeight: 20, speedWeight: 5, deadlineWeight: 5, portfolioWeight: 10 },
+  },
+  {
+    id: 'FAST_DELIVERY',
+    icon: '⚡',
+    label: { vi: 'Giao nhanh', en: 'Fast Delivery' },
+    desc: { vi: 'Ưu tiên tốc độ & đúng hạn', en: 'Speed & deadline priority' },
+    weights: { priceWeight: 15, skillWeight: 20, experienceWeight: 10, ratingWeight: 15, speedWeight: 25, deadlineWeight: 10, portfolioWeight: 5 },
+  },
+] as const;
+
 const AHP_CRITERIA = [
   { key: 'priceWeight',      label: { vi: 'Giá thầu',    en: 'Price' },       default: 40 },
   { key: 'skillWeight',      label: { vi: 'Kỹ năng',     en: 'Skills' },      default: 20 },
@@ -65,6 +89,12 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
   const [weights, setWeights] = useState<Record<string, number>>(
     Object.fromEntries(AHP_CRITERIA.map((c) => [c.key, c.default]))
   );
+  const [activePreset, setActivePreset] = useState<string | null>('BEST_VALUE');
+
+  const applyPreset = (preset: typeof AHP_PRESETS[number]) => {
+    setWeights({ ...preset.weights });
+    setActivePreset(preset.id);
+  };
 
   const skillInputRef = useRef<HTMLInputElement>(null);
 
@@ -414,6 +444,30 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                     </div>
                   </div>
 
+                  {/* Preset cards */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {AHP_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => applyPreset(preset)}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          activePreset === preset.id
+                            ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
+                            : 'border-slate-200 hover:border-blue-300 bg-white'
+                        }`}
+                      >
+                        <div className="text-lg mb-1">{preset.icon}</div>
+                        <div className="text-[10px] font-extrabold text-slate-800 leading-snug">
+                          {preset.label[language as 'vi' | 'en']}
+                        </div>
+                        <div className="text-[9px] text-slate-400 font-medium mt-0.5 leading-snug">
+                          {preset.desc[language as 'vi' | 'en']}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-4">
                     {AHP_CRITERIA.map((criterion) => {
                       const val = weights[criterion.key];
@@ -424,7 +478,10 @@ export default function CreateJobModal({ onClose, onSuccess }: Props) {
                             <span className="text-xs font-black text-blue-600 w-10 text-right">{val}%</span>
                           </div>
                           <input type="range" min={0} max={100} value={val}
-                            onChange={(e) => setWeights((prev) => ({ ...prev, [criterion.key]: Number(e.target.value) }))}
+                            onChange={(e) => {
+                              setWeights((prev) => ({ ...prev, [criterion.key]: Number(e.target.value) }));
+                              setActivePreset(null);
+                            }}
                             className="w-full h-1.5 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
                           />
                         </div>
