@@ -9,12 +9,39 @@ import {
 } from '@nestjs/common';
 import { RoleType } from '@prisma/client';
 import { ClientBidsService } from './client-bids.service';
-import { BidDecisionDto } from './dto/client-bids.dto';
+import { AhpPresetsService } from './ahp-presets.service';
+import { AhpTopsisService } from './ahp-topsis.service';
+import { BidDecisionDto, ValidateAhpDto } from './dto/client-bids.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { AccessTokenPayload } from '../../common/types/jwt-payload.type';
+
+// MC-04: Presets endpoint — public so FE can show before login
+@Controller('client/ahp')
+export class AhpController {
+  constructor(
+    private presets: AhpPresetsService,
+    private topsis: AhpTopsisService,
+  ) {}
+
+  // MC-04: Get all preset templates
+  @Public()
+  @Get('presets')
+  getPresets() {
+    return this.presets.getAll();
+  }
+
+  // MC-02: Validate AHP pairwise matrix and return CR
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RoleType.CLIENT)
+  @Post('validate')
+  validateMatrix(@Body() dto: ValidateAhpDto) {
+    return this.topsis.computeAhpWeights(dto.matrix);
+  }
+}
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(RoleType.CLIENT)
