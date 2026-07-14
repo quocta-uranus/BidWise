@@ -11,7 +11,9 @@ Truy cập: **http://localhost:3000**
 ---
 
 ### 2. Tài khoản test
-
+ │ Email    │ admin@bidwise.com         │
+  ├──────────┼───────────────────────────┤
+  │ Password │ Admin@123
 | Role | Email | Mật khẩu |
 |---|---|---|
 | Client | `client@bidwise.dev` | `Password123!` |
