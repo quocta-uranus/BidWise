@@ -145,9 +145,8 @@ model User {
   freelancerProfile   FreelancerProfile?
   bookmarks           JobBookmark[]
   jobAlerts           JobAlert?
-  clientContracts          Contract[]                @relation("ClientContracts")
-  freelancerContracts      Contract[]                @relation("FreelancerContracts")
-  skillClusterReputations  SkillClusterReputation[]
+  clientContracts     Contract[]         @relation("ClientContracts")
+  freelancerContracts Contract[]         @relation("FreelancerContracts")
 
   @@index([email])
   @@index([status])
@@ -667,22 +666,4 @@ model ContractStatusLog {
 
   @@index([contractId])
   @@map("contract_status_logs")
-}
-
-// ─── SMART MATCHING & REPUTATION TABLES ──────────────────────────────────────
-
-model SkillClusterReputation {
-  id           String   @id @default(cuid())
-  freelancerId String
-  skillCluster String
-  score        Float    @default(0)
-  reviewCount  Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  freelancer User @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-
-  @@unique([freelancerId, skillCluster])
-  @@index([freelancerId])
-  @@map("skill_cluster_reputations")
 }

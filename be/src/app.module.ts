@@ -26,6 +26,8 @@ import { ContractsModule } from './modules/contracts/contracts.module';
 import { FreelancerModule } from './modules/freelancer/freelancer.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { ClientBidsModule } from './modules/client-bids/client-bids.module';
+import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { RecommendationModule } from './modules/recommendation/recommendation.module';
 import { ReputationModule } from './modules/reputation/reputation.module';
 
@@ -73,6 +75,8 @@ import { ReputationModule } from './modules/reputation/reputation.module';
     FreelancerModule,
     BidsModule,
     ClientBidsModule,
+    AiChatModule,
+    ChatModule,
     RecommendationModule,
     ReputationModule,
   ],
