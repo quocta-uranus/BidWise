@@ -145,6 +145,8 @@ model User {
   freelancerProfile   FreelancerProfile?
   bookmarks           JobBookmark[]
   jobAlerts           JobAlert?
+  reviewsGiven        Review[]           @relation("ReviewerRelation")
+  reviewsReceived     Review[]           @relation("RevieweeRelation")
   clientContracts     Contract[]         @relation("ClientContracts")
   freelancerContracts Contract[]         @relation("FreelancerContracts")
 
@@ -466,6 +468,24 @@ model Transaction {
   @@map("transactions")
 }
 
+model Review {
+  id            String   @id @default(cuid())
+  contractId    String
+  reviewerId    String
+  revieweeId    String
+  qualityRating Float
+  commRating    Float
+  speedRating   Float
+  comment       String   @default("")
+  anonymous     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  reviewer      User     @relation("ReviewerRelation", fields: [reviewerId], references: [id])
+  reviewee      User     @relation("RevieweeRelation", fields: [revieweeId], references: [id])
+
+  @@map("reviews")
+}
 // ─── FREELANCER TABLES ───────────────────────────────────────────────────────
 
 model FreelancerProfile {
@@ -589,6 +609,8 @@ model Contract {
   cancelReason     String?
   disputeReason    String?
   autoApprovalDays Int            @default(5)
+  clientReviewed     Boolean        @default(false)
+  freelancerReviewed Boolean        @default(false)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -598,6 +620,7 @@ model Contract {
   freelancer   User                 @relation("FreelancerContracts", fields: [freelancerId], references: [id])
   milestones   Milestone[]
   statusLogs   ContractStatusLog[]
+  reviews      Review[]
 
   @@index([clientId])
   @@index([freelancerId])

@@ -280,7 +280,25 @@ export class ClientBidsService {
     });
 
     if (!bid) throw new NotFoundException('BID_NOT_FOUND');
-    return bid.freelancer;
+
+    const reviews = await this.prisma.review.findMany({
+      where: { revieweeId: bid.freelancerId },
+      include: {
+        reviewer: { select: { fullName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      ...bid.freelancer,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
+        rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+        comment: r.comment,
+        date: r.createdAt.toISOString().split('T')[0],
+      })),
+    };
   }
 
   private async verifyJobOwner(jobId: string, clientId: string) {

@@ -89,7 +89,12 @@ export default function CreateContractModal({ bidId, bidAmount, jobTitle, onClos
       toast.success('Hợp đồng đã được tạo thành công!');
       onSuccess();
     } catch (e: any) {
-      toast.error(e.response?.data?.message ?? 'Không thể tạo hợp đồng');
+      const msg = e.response?.data?.message;
+      if (msg === 'INSUFFICIENT_FUNDS_FOR_ESCROW') {
+        toast.error('Số dư khả dụng của bạn không đủ để thực hiện ký quỹ cho hợp đồng này. Vui lòng nạp thêm tiền!');
+      } else {
+        toast.error(msg ?? 'Không thể tạo hợp đồng');
+      }
     } finally {
       setLoading(false);
     }

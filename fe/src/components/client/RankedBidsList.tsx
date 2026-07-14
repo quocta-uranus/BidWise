@@ -210,7 +210,12 @@ export default function RankedBidsList({ jobId, jobTitle, onBidAccepted }: Props
                   {/* Main info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900">{bid.freelancer.fullName}</span>
+                      <button
+                        onClick={() => setProfileModal({ bidId: bid.id })}
+                        className="font-semibold text-slate-900 hover:text-blue-600 hover:underline transition-colors text-left"
+                      >
+                        {bid.freelancer.fullName}
+                      </button>
                       {bid.freelancer.assessmentLevel && (
                         <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                           {bid.freelancer.assessmentLevel}

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { X, AlertOctagon, MessageSquare } from "lucide-react";
+import { X, AlertOctagon, Star, MessageSquare } from "lucide-react";
 import { Contract, contractsApi } from "@/lib/api/contracts.api";
 import { createConversation } from "@/lib/api/chat.api";
 import MilestoneTimeline from "./MilestoneTimeline";
+import { useFreelancer } from "@/lib/hooks/useFreelancer";
 import { toast } from "sonner";
 
 interface Props {
@@ -43,9 +44,37 @@ export default function ContractDetail({
   const [feedback, setFeedback] = useState("");
   const [submitModal, setSubmitModal] = useState<string | null>(null);
   const [submitNotes, setSubmitNotes] = useState("");
-  const [deliverables, setDeliverables] = useState<
-    { fileName: string; fileUrl: string; description: string }[]
-  >([{ fileName: "", fileUrl: "", description: "" }]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [qualityRating, setQualityRating] = useState(5);
+  const [commRating, setCommRating] = useState(5);
+  const [speedRating, setSpeedRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [anonymous, setAnonymous] = useState(false);
+
+  const executeReviewFreelancer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading("review");
+    try {
+      await contractsApi.reviewFreelancer(contract.id, {
+        qualityRating,
+        commRating,
+        speedRating,
+        comment: reviewComment,
+        anonymous,
+      });
+      toast.success("Đã gửi đánh giá freelancer thành công!");
+      setShowReviewModal(false);
+      onRefresh();
+      useFreelancer.getState().fetchWallet();
+      useFreelancer.getState().fetchTransactions();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? "Đánh giá thất bại");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleMilestoneAction = (milestoneId: string, action: string) => {
     if (action === "submit") {
@@ -60,22 +89,20 @@ export default function ContractDetail({
   };
 
   const executeSubmit = async () => {
-    if (!submitModal) return;
+    if (!submitModal || !selectedFile) {
+      toast.error('Vui lòng chọn file để nộp!');
+      return;
+    }
     setActionLoading(submitModal);
-    const validDeliverables = deliverables.filter(
-      (d) => d.fileName.trim() && d.fileUrl.trim(),
-    );
     try {
-      await contractsApi.submitMilestone(contract.id, submitModal, {
-        freelancerNotes: submitNotes,
-        deliverables:
-          validDeliverables.length > 0 ? validDeliverables : undefined,
-      });
+      await contractsApi.submitMilestone(contract.id, submitModal, selectedFile, submitNotes);
       toast.success("Đã nộp milestone thành công!");
       setSubmitModal(null);
       setSubmitNotes("");
-      setDeliverables([{ fileName: "", fileUrl: "", description: "" }]);
+      setSelectedFile(null);
       onRefresh();
+      useFreelancer.getState().fetchWallet();
+      useFreelancer.getState().fetchTransactions();
     } catch (e: any) {
       toast.error(e.response?.data?.message ?? "Thất bại");
     } finally {
@@ -108,6 +135,8 @@ export default function ContractDetail({
       setFeedbackModal(null);
       setFeedback("");
       onRefresh();
+      useFreelancer.getState().fetchWallet();
+      useFreelancer.getState().fetchTransactions();
     } catch (e: any) {
       toast.error(e.response?.data?.message ?? "Thất bại");
     } finally {
@@ -130,6 +159,8 @@ export default function ContractDetail({
       toast.success("Đã hủy hợp đồng");
       setShowCancel(false);
       onRefresh();
+      useFreelancer.getState().fetchWallet();
+      useFreelancer.getState().fetchTransactions();
     } catch (e: any) {
       toast.error(e.response?.data?.message ?? "Thất bại");
     } finally {
@@ -223,6 +254,22 @@ export default function ContractDetail({
             />
           </div>
 
+          {/* Review Freelancer banner */}
+          {contract.status === 'COMPLETED' && userRole === 'client' && !contract.freelancerReviewed && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold text-amber-800">Hợp đồng đã hoàn thành!</p>
+                <p className="text-[11px] text-amber-600 mt-0.5 font-medium">Vui lòng dành chút thời gian đánh giá freelancer để nâng cao chất lượng nền tảng.</p>
+              </div>
+              <button
+                onClick={() => setShowReviewModal(true)}
+                className="shrink-0 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl transition-all shadow-sm"
+              >
+                Đánh giá ngay
+              </button>
+            </div>
+          )}
+
           {/* Cancel button */}
           {["ACTIVE", "PAUSED"].includes(contract.status) && (
             <div className="pt-3 border-t border-slate-100">
@@ -260,111 +307,34 @@ export default function ContractDetail({
             </div>
 
             {/* FL-21: Deliverables */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-slate-700">
-                  Sản phẩm bàn giao (FL-21)
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDeliverables((prev) => [
-                      ...prev,
-                      { fileName: "", fileUrl: "", description: "" },
-                    ])
-                  }
-                  className="text-xs text-blue-600 hover:text-blue-700"
-                >
-                  + Thêm file
-                </button>
-              </div>
-              <div className="space-y-3">
-                {deliverables.map((d, idx) => (
-                  <div
-                    key={idx}
-                    className="border border-slate-200 rounded-xl p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">
-                        File {idx + 1}
-                      </span>
-                      {deliverables.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDeliverables((prev) =>
-                              prev.filter((_, i) => i !== idx),
-                            )
-                          }
-                          className="text-xs text-rose-400 hover:text-rose-600"
-                        >
-                          Xóa
-                        </button>
-                      )}
-                    </div>
-                    <input
-                      value={d.fileName}
-                      onChange={(e) =>
-                        setDeliverables((prev) =>
-                          prev.map((item, i) =>
-                            i === idx
-                              ? { ...item, fileName: e.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Tên file (vd: final-design.fig)"
-                    />
-                    <input
-                      value={d.fileUrl}
-                      onChange={(e) =>
-                        setDeliverables((prev) =>
-                          prev.map((item, i) =>
-                            i === idx
-                              ? { ...item, fileUrl: e.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="URL file (Google Drive, GitHub, Figma...)"
-                    />
-                    <input
-                      value={d.description}
-                      onChange={(e) =>
-                        setDeliverables((prev) =>
-                          prev.map((item, i) =>
-                            i === idx
-                              ? { ...item, description: e.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Mô tả ngắn (tùy chọn)"
-                    />
-                  </div>
-                ))}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700">Sản phẩm bàn giao (FL-21)</label>
+              <div className="border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-2xl p-6 text-center cursor-pointer relative bg-slate-50/50 hover:bg-slate-50 transition-all">
+                <input
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+                <div className="space-y-1.5 text-xs text-slate-500">
+                  <p className="font-bold text-slate-700">
+                    {selectedFile ? `✓ Đã chọn: ${selectedFile.name}` : "Kéo thả hoặc nhấp để chọn file"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium">Hỗ trợ zip, pdf, docx, png, jpg (tối đa 50MB)</p>
+                </div>
               </div>
             </div>
 
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => {
-                  setSubmitModal(null);
-                  setDeliverables([
-                    { fileName: "", fileUrl: "", description: "" },
-                  ]);
-                }}
+                onClick={() => { setSubmitModal(null); setSelectedFile(null); }}
                 className="flex-1 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
               >
                 Hủy
               </button>
               <button
                 onClick={executeSubmit}
-                disabled={!!actionLoading}
-                className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50"
+                disabled={!selectedFile || !!actionLoading}
+                className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {actionLoading ? "..." : "Nộp nghiệm thu"}
               </button>
@@ -462,6 +432,121 @@ export default function ContractDetail({
                 {actionLoading ? "..." : "Hủy hợp đồng"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Freelancer Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-900 flex items-center gap-1.5">
+                  <Star className="w-5 h-5 text-amber-400 fill-amber-400 shrink-0" />
+                  Đánh giá Freelancer
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 font-medium">Đánh giá của bạn sẽ giúp cập nhật Skill Score của freelancer.</p>
+              </div>
+              <button onClick={() => setShowReviewModal(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={executeReviewFreelancer} className="space-y-4">
+              <div className="space-y-3.5">
+                {/* Quality */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Chất lượng bàn giao</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setQualityRating(s)}
+                        className="transition-all duration-150 transform hover:scale-110"
+                      >
+                        <Star className={`w-5 h-5 ${s <= qualityRating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Communication */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Giao tiếp & Phối hợp</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setCommRating(s)}
+                        className="transition-all duration-150 transform hover:scale-110"
+                      >
+                        <Star className={`w-5 h-5 ${s <= commRating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Speed */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Tốc độ hoàn thành</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSpeedRating(s)}
+                        className="transition-all duration-150 transform hover:scale-110"
+                      >
+                        <Star className={`w-5 h-5 ${s <= speedRating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Comment */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600">Nhận xét chi tiết</label>
+                <textarea
+                  rows={3}
+                  placeholder="Chia sẻ trải nghiệm làm việc với freelancer này..."
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs outline-none focus:border-blue-500 resize-none font-sans transition-all"
+                />
+              </div>
+
+              {/* Anonymous check */}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={anonymous}
+                  onChange={(e) => setAnonymous(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500/20 w-4 h-4 transition-all"
+                />
+                <span className="text-xs text-slate-500 font-bold">Ẩn danh tính của tôi</span>
+              </label>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(false)}
+                  className="flex-1 h-10 border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-700 font-bold text-sm transition-all"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading === 'review'}
+                  className="flex-1 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-sm disabled:opacity-50"
+                >
+                  {actionLoading === 'review' ? '...' : 'Gửi đánh giá'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

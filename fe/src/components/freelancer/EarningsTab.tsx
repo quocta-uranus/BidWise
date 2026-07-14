@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFreelancer, Transaction } from '@/lib/hooks/useFreelancer';
+import { useFreelancerProfile } from '@/lib/hooks/useFreelancerProfile';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { localizeTransaction } from '@/lib/i18n/demo-content';
+import { toast } from 'sonner';
+import CheckoutModal from '@/components/payment/CheckoutModal';
 import {
   Wallet as WalletIcon,
   Lock as LockIcon,
@@ -69,11 +72,18 @@ function StarRow({
 /* ── main component ───────────────────────────────────────────── */
 export default function EarningsTab() {
   const { wallet, contracts, bids, jobs, requestWithdrawal, depositFunds, reviewClient } = useFreelancer();
+  const { profile, loadProfile } = useFreelancerProfile();
   const { user } = useAuthStore();
   const { t, language } = useTranslation();
 
   const currentRole = user?.roles[0] || 'FREELANCER';
   const isClient = currentRole === 'CLIENT';
+
+  useEffect(() => {
+    if (!isClient) {
+      loadProfile();
+    }
+  }, [loadProfile, isClient]);
 
   /* ── Tab navigation definitions ── */
   const clientTabs = useMemo(() => [
@@ -116,6 +126,9 @@ export default function EarningsTab() {
   const [dpError, setDpError] = useState('');
   const [dpSuccess, setDpSuccess] = useState(false);
   const [isDepositing, setIsDepositing] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutAmount, setCheckoutAmount] = useState(0);
+  const [checkoutGateway, setCheckoutGateway] = useState('vnpay');
 
   /* ── history search / filter ── */
   const [txSearch, setTxSearch] = useState('');
@@ -153,12 +166,10 @@ export default function EarningsTab() {
   }, [wallet.transactions, txSearch, txType, language]);
 
   /* ── reputation matrix ── */
-  const reputationMatrix = [
-    { skill: 'React / Next.js', score: 92, benchmark: 72 },
-    { skill: 'TypeScript', score: 88, benchmark: 65 },
-    { skill: 'NestJS / API Backend', score: 58, benchmark: 62 },
-    { skill: 'Docker / PostgreSQL', score: 67, benchmark: 60 },
-    { skill: 'React Native / Mobile', score: 45, benchmark: 55 },
+  const reputationMatrix = profile?.reputationMatrix || [
+    { skill: 'React / Next.js', score: 0, benchmark: 72 },
+    { skill: 'TypeScript', score: 0, benchmark: 65 },
+    { skill: 'NestJS / API Backend', score: 0, benchmark: 62 },
   ];
 
   /* ── withdraw handler ── */
@@ -211,7 +222,7 @@ export default function EarningsTab() {
   };
 
   /* ── deposit handler (Client) ── */
-  const handleDepositSubmit = async (e: React.FormEvent) => {
+  const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setDpError('');
     setDpSuccess(false);
@@ -222,16 +233,9 @@ export default function EarningsTab() {
       return;
     }
 
-    setIsDepositing(true);
-    const res = await depositFunds(amtNum, depositGateway.toUpperCase());
-    setIsDepositing(false);
-    if (res.success) {
-      setDpSuccess(true);
-      setDepositAmount('');
-      setTimeout(() => setDpSuccess(false), 5000);
-    } else {
-      setDpError(language === 'vi' ? 'Nạp tiền thất bại.' : 'Deposit failed.');
-    }
+    setCheckoutAmount(amtNum);
+    setCheckoutGateway(depositGateway);
+    setShowCheckout(true);
   };
 
   /* ── CSV export ── */
@@ -258,20 +262,33 @@ export default function EarningsTab() {
   };
 
   /* ── review submit ── */
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewContractId) return;
-    reviewClient(reviewContractId);
-    setReviewSuccess(true);
-    setTimeout(() => {
-      setReviewSuccess(false);
-      setReviewContractId(null);
-      setCommRating(5);
-      setPayRating(5);
-      setClarityRating(5);
-      setReviewNote('');
-      setAnonymous(false);
-    }, 1500);
+
+    const res = await reviewClient(reviewContractId, {
+      qualityRating: clarityRating,
+      commRating: commRating,
+      speedRating: payRating,
+      comment: reviewNote,
+      anonymous,
+    });
+
+    if (res.success) {
+      toast.success(L('Đã gửi đánh giá thành công!', 'Review submitted successfully!'));
+      setReviewSuccess(true);
+      setTimeout(() => {
+        setReviewSuccess(false);
+        setReviewContractId(null);
+        setCommRating(5);
+        setPayRating(5);
+        setClarityRating(5);
+        setReviewNote('');
+        setAnonymous(false);
+      }, 1500);
+    } else {
+      toast.error(res.error || L('Đánh giá thất bại', 'Review failed'));
+    }
   };
 
   /* ── pending review contracts ── */
@@ -357,7 +374,7 @@ export default function EarningsTab() {
               setActiveTab('overview');
               setReviewContractId(pendingReviewContracts[0].id);
             }}
-            className="shrink-0 h-9 px-4 bg-amber-500 hover:bg-amber-650 text-white font-extrabold text-xs rounded-xl transition-colors shadow-sm"
+            className="shrink-0 h-9 px-4 bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs rounded-xl transition-colors shadow-sm"
           >
             {L('Đánh giá ngay', 'Review Now')}
           </button>
@@ -825,7 +842,7 @@ export default function EarningsTab() {
                   </div>
 
                   {wdError && (
-                    <p className="text-xs text-red-650 bg-red-50 border border-red-100 p-3 rounded-xl font-medium flex items-center gap-1.5 animate-shake">
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl font-medium flex items-center gap-1.5 animate-shake">
                       <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
                       {wdError}
                     </p>
@@ -982,7 +999,7 @@ export default function EarningsTab() {
                   </div>
 
                   {dpError && (
-                    <p className="text-xs text-red-650 bg-red-50 border border-red-100 p-3 rounded-xl font-semibold flex items-center gap-1.5 animate-shake">
+                    <p className="text-xs text-red-600 bg-red-50 border border-red-100 p-3 rounded-xl font-semibold flex items-center gap-1.5 animate-shake">
                       <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
                       {dpError}
                     </p>
@@ -1092,7 +1109,7 @@ export default function EarningsTab() {
                           >
                             {isAbove ? `▲ ${item.score - item.benchmark}pts` : `▼ ${item.benchmark - item.score}pts`}
                           </span>
-                          <span className="text-blue-650 font-extrabold">{item.score}/100</span>
+                          <span className="text-blue-600 font-extrabold">{item.score}/100</span>
                         </div>
                       </div>
 
@@ -1135,7 +1152,7 @@ export default function EarningsTab() {
                 {reputationMatrix
                   .filter((r) => r.score < r.benchmark)
                   .map((r) => (
-                    <p key={r.skill} className="text-xs text-blue-705 font-bold flex items-start gap-1.5 leading-relaxed">
+                    <p key={r.skill} className="text-xs text-blue-700 font-bold flex items-start gap-1.5 leading-relaxed">
                       <span className="text-amber-500 shrink-0">▼</span>
                       {L(
                         `Kỹ năng ${r.skill}: Cần cải thiện thêm ${r.benchmark - r.score} điểm để đạt benchmark thị trường.`,
@@ -1145,7 +1162,7 @@ export default function EarningsTab() {
                   ))}
                 {reputationMatrix.filter((r) => r.score < r.benchmark).length === 0 && (
                   <p className="text-xs text-green-700 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-green-650 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
                     {L(
                       'Bạn vượt chuẩn thị trường trên tất cả kỹ năng! Tiếp tục duy trì nhé.',
                       'You beat market benchmarks across all skills! Keep it up.'
@@ -1155,6 +1172,46 @@ export default function EarningsTab() {
               </div>
 
               <p className="text-[10px] text-slate-400 italic text-center font-medium">{t('earnings.reputationNote')}</p>
+
+              {/* Reviews List */}
+              {profile.reviews && profile.reviews.length > 0 && (
+                <div className="border-t border-slate-200 pt-5 space-y-4">
+                  <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wide">
+                    {L('Lịch sử đánh giá từ Khách hàng', 'Client Feedback History')}
+                  </h4>
+                  <div className="space-y-3">
+                    {profile.reviews.map((r) => (
+                      <div key={r.id} className="bg-white border border-slate-100 rounded-2xl p-4 space-y-2 shadow-sm">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-extrabold text-slate-750">{r.reviewerName}</span>
+                          <span className="text-slate-400 font-bold">{r.date}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, idx) => (
+                            <Star
+                              key={idx}
+                              size={12}
+                              className={
+                                idx < Math.round(r.rating)
+                                  ? 'text-amber-400 fill-amber-400'
+                                  : 'text-slate-200'
+                              }
+                            />
+                          ))}
+                          <span className="text-[10px] text-slate-500 font-bold ml-1">
+                            {r.rating.toFixed(1)}/5.0
+                          </span>
+                        </div>
+                        {r.comment && (
+                          <p className="text-xs text-slate-650 leading-relaxed italic bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                            "{r.comment}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1241,6 +1298,19 @@ export default function EarningsTab() {
           </div>
         </div>
       )}
+
+      <CheckoutModal
+        isOpen={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        amount={checkoutAmount}
+        gateway={checkoutGateway}
+        userEmail={user?.email || 'client@bidwise.com'}
+        onSuccess={() => {
+          setDpSuccess(true);
+          setDepositAmount('');
+          setTimeout(() => setDpSuccess(false), 5000);
+        }}
+      />
     </div>
   );
 }
