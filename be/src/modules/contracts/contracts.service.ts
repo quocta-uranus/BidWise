@@ -16,10 +16,14 @@ import { ReviewFreelancerDto } from './dto/review-freelancer.dto';
 import { join, extname } from 'path';
 import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, createReadStream } from 'fs';
 import { randomUUID } from 'crypto';
+import { ReputationService } from '../reputation/reputation.service';
 
 @Injectable()
 export class ContractsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private reputationService: ReputationService,
+  ) {}
 
   async createContract(clientId: string, dto: CreateContractDto) {
     const bid = await this.prisma.bid.findUnique({
@@ -408,6 +412,18 @@ export class ContractsService {
 
         return m;
       });
+      // Fire-and-forget: update multi-dimensional reputation after milestone approved
+      if (dto.rating) {
+        this.prisma.job
+          .findUnique({ where: { id: contract.jobId }, select: { skills: true } })
+          .then((job) => {
+            if (job) {
+              this.reputationService.updateAfterReview(contract.freelancerId, job.skills, dto.rating!);
+            }
+          })
+          .catch(() => void 0);
+      }
+
       return updated;
     }
 

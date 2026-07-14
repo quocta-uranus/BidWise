@@ -404,10 +404,12 @@ model Bid {
   coverLetter  String?
   fileName     String?
   fileUrl      String?
-  matchingScore Int?
-  matchBreakdown Json?
-  submittedAt  DateTime  @default(now())
-  status       BidStatus @default(PENDING)
+  matchingScore   Int?
+  matchBreakdown  Json?
+  spamScore       Float?
+  isTemplateBid   Boolean   @default(false)
+  submittedAt     DateTime  @default(now())
+  status          BidStatus @default(PENDING)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -501,6 +503,8 @@ model FreelancerProfile {
   assessmentScore        Int?
   assessmentLevel        String?
   assessmentCompletedAt  DateTime?
+  reputationTier         String    @default("NEW")
+  skillVector            Json?
   cvFileName             String?
   cvFileUrl              String?
   cvFileSize             Int?

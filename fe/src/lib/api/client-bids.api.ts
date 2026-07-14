@@ -22,6 +22,8 @@ export interface RankedBid {
   matchingScore: number | null;
   matchBreakdown: any;
   submittedAt: string;
+  isTemplateBid: boolean;
+  spamScore: number | null;
   topsisScore: number;
   rank: number;
   scoreBreakdown: {

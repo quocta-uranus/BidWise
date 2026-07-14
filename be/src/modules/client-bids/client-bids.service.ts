@@ -124,6 +124,8 @@ export class ClientBidsService {
         matchingScore: bid.matchingScore,
         matchBreakdown: bid.matchBreakdown,
         submittedAt: bid.submittedAt,
+        isTemplateBid: bid.isTemplateBid,
+        spamScore: bid.spamScore,
         topsisScore: topsisData?.topsisScore ?? 0,
         rank: topsisData?.rank ?? 999,
         scoreBreakdown: topsisData

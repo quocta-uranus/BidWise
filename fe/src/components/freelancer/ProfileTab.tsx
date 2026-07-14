@@ -6,6 +6,7 @@ import { useFreelancer } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
 import { getQuizQuestions, localizeAssessmentLevel } from '@/lib/i18n/demo-content';
 import { useQueryClient } from '@tanstack/react-query';
+import ReputationDashboard from './ReputationDashboard';
 
 export default function ProfileTab() {
   const {
@@ -905,6 +906,9 @@ export default function ProfileTab() {
           </div>
         </div>
       )}
+
+      {/* Reputation Dashboard */}
+      <ReputationDashboard />
     </div>
   );
 }
