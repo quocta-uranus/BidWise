@@ -68,20 +68,23 @@ export function resolveAssessmentLevel(score: number): string {
   return 'Beginner';
 }
 
-export function gradeAssessment(answers: Record<string, number>): {
+export function gradeAssessment(
+  answers: Record<string, number>,
+  questions: AssessmentQuestionDef[] = ASSESSMENT_QUESTIONS,
+): {
   score: number;
   maxScore: number;
   level: string;
   breakdown: Array<{ questionId: string; correct: boolean }>;
 } {
-  const breakdown = ASSESSMENT_QUESTIONS.map((q) => ({
+  const breakdown = questions.map((q) => ({
     questionId: q.id,
     correct: answers[q.id] === q.correctIndex,
   }));
   const score = breakdown.filter((b) => b.correct).length;
   return {
     score,
-    maxScore: ASSESSMENT_QUESTIONS.length,
+    maxScore: questions.length,
     level: resolveAssessmentLevel(score),
     breakdown,
   };

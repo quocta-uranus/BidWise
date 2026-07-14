@@ -9,6 +9,7 @@ export class JobsService {
 
   async getCategories() {
     return this.prisma.category.findMany({
+      where: { isHidden: false },
       orderBy: { name: 'asc' },
     });
   }
@@ -63,7 +64,9 @@ export class JobsService {
   async findAll(clientId?: string) {
     console.log('=== findAll called ===');
     console.log('clientId:', clientId);
-    const where = clientId ? { clientId, deletedAt: null } : { deletedAt: null };
+    const where = clientId
+      ? { clientId, deletedAt: null }
+      : { deletedAt: null, isHidden: false };
     console.log('where:', JSON.stringify(where));
     try {
       const result = await this.prisma.job.findMany({
@@ -429,6 +432,7 @@ export class JobsService {
 
     const where: any = {
       deletedAt: null,
+      isHidden: false,
       status: JobStatus.OPEN,
     };
 
@@ -532,7 +536,7 @@ export class JobsService {
     if (!profile || !profile.skills || profile.skills.length === 0) {
       // Cold-start: return newest jobs
       const coldJobs = await this.prisma.job.findMany({
-        where: { deletedAt: null, status: JobStatus.OPEN },
+        where: { deletedAt: null, isHidden: false, status: JobStatus.OPEN },
         include: {
           category: true,
           client: { select: { id: true, fullName: true, avatarUrl: true } },
@@ -548,7 +552,7 @@ export class JobsService {
 
     // Get all open jobs
     const jobs = await this.prisma.job.findMany({
-      where: { deletedAt: null, status: JobStatus.OPEN },
+      where: { deletedAt: null, isHidden: false, status: JobStatus.OPEN },
       include: {
         category: true,
         client: { select: { id: true, fullName: true, avatarUrl: true } },

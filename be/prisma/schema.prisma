@@ -112,6 +112,29 @@ enum ContractActionType {
   MILESTONE_REJECTED
 }
 
+enum ReportType {
+  JOB
+  USER
+  CONTRACT
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportAction {
+  NONE
+  BAN_USER
+  REFUND
+  RELEASE_FUNDS
+  HIDE_JOB
+  WARNING
+}
+
 // ─── CORE TABLES ─────────────────────────────────────────────────────────────
 
 model User {
@@ -149,6 +172,8 @@ model User {
   reviewsReceived     Review[]           @relation("RevieweeRelation")
   clientContracts     Contract[]         @relation("ClientContracts")
   freelancerContracts Contract[]         @relation("FreelancerContracts")
+  reports             Report[]           @relation("ReporterReports")
+  skillClusterReputations SkillClusterReputation[]
 
   @@index([email])
   @@index([status])
@@ -304,12 +329,30 @@ model Category {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
+  isHidden    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  jobs Job[]
+  jobs   Job[]
+  skills Skill[]
 
   @@map("categories")
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  categoryId  String?
+  description String?
+  isHidden    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category            Category?            @relation(fields: [categoryId], references: [id])
+  assessmentQuestions AssessmentQuestion[]
+
+  @@index([categoryId])
+  @@map("skills")
 }
 
 model Job {
@@ -326,6 +369,8 @@ model Job {
   categoryId   String
   auctionType  AuctionType  @default(SEALED_BID)
   status       JobStatus    @default(DRAFT)
+  isHidden     Boolean      @default(false)
+  hiddenReason String?
   sealedOpenedAt DateTime?
   editDeadlineHours Int     @default(24)
   skills       String[]
@@ -512,12 +557,28 @@ model FreelancerProfile {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   portfolioItems  PortfolioItem[]
   certificates    Certificate[]
 
   @@index([userId])
   @@map("freelancer_profiles")
+}
+
+model SkillClusterReputation {
+  id            String   @id @default(cuid())
+  freelancerId  String
+  skillCluster  String
+  score         Float    @default(0)
+  reviewCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  freelancer    User     @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  @@unique([freelancerId, skillCluster])
+  @@index([freelancerId])
+  @@map("skill_cluster_reputations")
 }
 
 model PortfolioItem {
@@ -689,4 +750,58 @@ model ContractStatusLog {
 
   @@index([contractId])
   @@map("contract_status_logs")
+}
+
+// ─── ADMIN & PLATFORM TABLES ─────────────────────────────────────────────────
+
+model Report {
+  id         String        @id @default(cuid())
+  reporterId String
+  targetType ReportType
+  targetId   String
+  reason     String
+  evidence   String?
+  status     ReportStatus  @default(PENDING)
+  resolution String?
+  action     ReportAction?
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  reporter User @relation("ReporterReports", fields: [reporterId], references: [id])
+
+  @@index([status])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String?
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@map("system_configs")
+}
+
+model AssessmentQuestion {
+  id           String   @id @default(cuid())
+  skillId      String?
+  question     String
+  options      String[]
+  correctIndex Int
+  type         String   @default("mcq")
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  skill Skill? @relation(fields: [skillId], references: [id])
+
+  @@index([skillId])
+  @@map("assessment_questions")
 }

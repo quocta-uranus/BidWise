@@ -525,7 +525,7 @@ async function main() {
       ],
     });
 
-    // For completed contracts: add SkillClusterReputation update
+    // For completed contracts: update SkillClusterReputation
     if (contractCount < 10) {
       const rating = randInt(3, 5);
       const clusters = candidate.skills.map((s) => s.toLowerCase());
@@ -549,7 +549,7 @@ async function main() {
               data: {
                 score: Math.round((existing.score * 0.8 + rating * 0.2) * 100) / 100,
                 reviewCount: existing.reviewCount + 1,
-                              },
+              },
             });
           } else {
             await prisma.skillClusterReputation.create({
@@ -558,7 +558,7 @@ async function main() {
                 skillCluster: clusterName,
                 score: rating,
                 reviewCount: 1,
-                              },
+              },
             });
           }
           break; // one cluster per contract for simplicity
