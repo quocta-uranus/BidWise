@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsNumber, IsOptional, IsString, Max, Min, ValidateNested, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import { IsArray, IsDateString, IsInt, IsNumber, IsOptional, IsString, Max, Min, ValidateNested, ArrayMinSize, ArrayMaxSize } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateMilestoneDto {
@@ -72,6 +72,12 @@ export class ReviewMilestoneDto {
   @IsOptional()
   @IsString()
   feedback?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number;
 }
 
 export class CancelContractDto {

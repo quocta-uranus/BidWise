@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MatchingService } from '../bidding/services/matching.service';
 import { FreelancerProfileService } from '../bidding/services/freelancer-profile.service';
+import { NlpSpamService } from '../bidding/services/nlp-spam.service';
 import { AUCTION_TYPE, BID_STATUS, BidStatus, JOB_STATUS } from '../bidding/constants/bidding.constants';
 import { CreateBidDto, UpdateBidDto } from './dto/bid.dto';
 import type { BidStatus as PrismaBidStatus, JobStatus, AuctionType } from '@prisma/client';
@@ -80,6 +81,7 @@ export class BidsService {
     private prisma: PrismaService,
     private matchingService: MatchingService,
     private freelancerProfileService: FreelancerProfileService,
+    private nlpSpam: NlpSpamService,
   ) {}
 
   private formatBid(bid: BidWithJob): BidFormatted {
@@ -161,6 +163,13 @@ export class BidsService {
       dto.amount,
     );
 
+    // MC-06: Anti-Spam NLP check — compare new cover letter against past ones
+    const { spamScore, isTemplateBid } = await this.checkCoverLetterSpam(
+      freelancerId,
+      dto.coverLetter ?? '',
+      existing?.id,
+    );
+
     const now = new Date();
     const bid = await this.prisma.$transaction(async (tx) => {
       if (existing?.status === BID_STATUS.WITHDRAWN) {
@@ -175,6 +184,8 @@ export class BidsService {
             status: BID_STATUS.PENDING,
             matchingScore: score,
             matchBreakdown: breakdown as unknown as Prisma.InputJsonValue,
+            spamScore,
+            isTemplateBid,
             submittedAt: now,
             updatedAt: now,
           },
@@ -195,6 +206,8 @@ export class BidsService {
           fileUrl: dto.fileUrl,
           matchingScore: score,
           matchBreakdown: breakdown as unknown as Prisma.InputJsonValue,
+          spamScore,
+          isTemplateBid,
           submittedAt: now,
           updatedAt: now,
         },
@@ -203,7 +216,7 @@ export class BidsService {
     });
 
     const quota = await this.freelancerProfileService.getQuota(freelancerId);
-    return { bid: this.formatBid(bid), quota };
+    return { bid: this.formatBid(bid), quota, isTemplateBid, spamScore };
   }
 
   async listMyBids(freelancerId: string, status?: BidStatus) {
@@ -281,6 +294,30 @@ export class BidsService {
     });
     await this.freelancerProfileService.recordWithdrawPenalty(freelancerId);
     return this.formatBid(updated);
+  }
+
+  private async checkCoverLetterSpam(
+    freelancerId: string,
+    newCoverLetter: string,
+    excludeBidId?: string,
+  ) {
+    if (!newCoverLetter?.trim()) {
+      return { spamScore: 0, isTemplateBid: false };
+    }
+    const pastBids = await this.prisma.bid.findMany({
+      where: {
+        freelancerId,
+        coverLetter: { not: null },
+        ...(excludeBidId ? { id: { not: excludeBidId } } : {}),
+      },
+      select: { coverLetter: true },
+      orderBy: { submittedAt: 'desc' },
+      take: 50, // check against last 50 bids for performance
+    });
+    const existingLetters = pastBids
+      .map((b) => b.coverLetter ?? '')
+      .filter(Boolean);
+    return this.nlpSpam.checkSpam(newCoverLetter, existingLetters);
   }
 
   async getStats(freelancerId: string) {
