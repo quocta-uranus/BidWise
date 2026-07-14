@@ -1,2 +1,2 @@
 -- DropIndex
-DROP INDEX "transactions_walletId_idx";
+DROP INDEX IF EXISTS "transactions_walletId_idx";

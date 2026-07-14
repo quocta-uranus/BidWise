@@ -123,30 +123,26 @@ export class TokenService {
     roles: RoleType[];
     sessionId: string;
   }): Promise<{ accessToken: string; refreshToken: string }> {
-    // Pre-create a DB record to get the tokenId
+    const tokenId = randomBytes(16).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-
-    const dbToken = await this.prisma.refreshToken.create({
-      data: {
-        userId: params.userId,
-        sessionId: params.sessionId,
-        tokenHash: 'pending',
-        expiresAt,
-      },
-    });
 
     const accessToken = this.generateAccessToken(params);
     const refreshToken = this.generateRefreshToken({
       userId: params.userId,
       sessionId: params.sessionId,
-      tokenId: dbToken.id,
+      tokenId,
     });
 
     const tokenHash = this.hashToken(refreshToken);
-    await this.prisma.refreshToken.update({
-      where: { id: dbToken.id },
-      data: { tokenHash },
+    await this.prisma.refreshToken.create({
+      data: {
+        id: tokenId,
+        userId: params.userId,
+        sessionId: params.sessionId,
+        tokenHash,
+        expiresAt,
+      },
     });
 
     return { accessToken, refreshToken };
