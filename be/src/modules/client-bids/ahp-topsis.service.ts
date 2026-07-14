@@ -1,4 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
+
+// Random Index table for n = 1..10 (Saaty, 1980)
+const RI_TABLE: Record<number, number> = {
+  1: 0.00, 2: 0.00, 3: 0.58, 4: 0.90, 5: 1.12,
+  6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49,
+};
+
+export interface AhpValidationResult {
+  weights: number[];
+  weightMap: Record<string, number>;
+  lambdaMax: number;
+  ci: number;
+  cr: number;
+  isConsistent: boolean;
+}
 
 export interface BidCriteria {
   bidId: string;
@@ -111,6 +126,59 @@ export class AhpTopsisService {
     results.forEach((r, i) => (r.rank = i + 1));
 
     return results;
+  }
+
+  /**
+   * AHP Pairwise Comparison → Priority Weights + Consistency Ratio
+   * matrix: n×n where matrix[i][j] = "how much more important is i vs j"
+   * Uses geometric mean method (approximation of eigenvector method).
+   */
+  computeAhpWeights(matrix: number[][]): AhpValidationResult {
+    const n = matrix.length;
+    if (n < 2 || n > 10) throw new BadRequestException('AHP_MATRIX_SIZE_INVALID');
+
+    for (const row of matrix) {
+      if (row.length !== n) throw new BadRequestException('AHP_MATRIX_NOT_SQUARE');
+      for (const val of row) {
+        if (val <= 0) throw new BadRequestException('AHP_MATRIX_VALUES_MUST_BE_POSITIVE');
+      }
+    }
+
+    // Step 1: Geometric mean of each row
+    const geoMeans = matrix.map((row) => {
+      const product = row.reduce((p, v) => p * v, 1);
+      return Math.pow(product, 1 / n);
+    });
+
+    // Step 2: Normalize → priority vector w
+    const sumGeo = geoMeans.reduce((s, v) => s + v, 0);
+    const weights = geoMeans.map((g) => g / sumGeo);
+
+    // Step 3: λ_max = (1/n) * Σ (A·w)_i / w_i
+    const aw = matrix.map((row) =>
+      row.reduce((sum, val, j) => sum + val * weights[j], 0),
+    );
+    const lambdaMax = aw.reduce((sum, val, i) => sum + val / weights[i], 0) / n;
+
+    // Step 4: CI and CR
+    const ci = (lambdaMax - n) / (n - 1);
+    const ri = RI_TABLE[n] ?? 1.49;
+    const cr = ri === 0 ? 0 : ci / ri;
+
+    const criteriaKeys = ['price', 'skill', 'experience', 'rating', 'speed', 'deadline', 'portfolio'];
+    const weightMap: Record<string, number> = {};
+    criteriaKeys.slice(0, n).forEach((k, i) => {
+      weightMap[k] = Math.round(weights[i] * 10000) / 10000;
+    });
+
+    return {
+      weights: weights.map((w) => Math.round(w * 10000) / 10000),
+      weightMap,
+      lambdaMax: Math.round(lambdaMax * 10000) / 10000,
+      ci: Math.round(ci * 10000) / 10000,
+      cr: Math.round(cr * 10000) / 10000,
+      isConsistent: cr <= 0.1,
+    };
   }
 
   private normalizeWeights(w: AhpWeights) {
