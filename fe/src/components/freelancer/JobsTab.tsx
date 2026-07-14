@@ -214,8 +214,13 @@ function JobDrawer({ job, alreadyBid, onClose, onBid }: {
               </span>
             </div>
             <h3 className="font-bold text-slate-900 text-base leading-snug">{job.title}</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Client: {job.client?.fullName ?? 'N/A'}
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+              <span>Client: {job.client?.fullName ?? 'N/A'}</span>
+              {job.client?.avgRating && job.client.avgRating > 0 && (
+                <span className="flex items-center gap-0.5 text-amber-500 bg-amber-50 px-2 py-0.5 rounded-full text-[10px] border border-amber-100 font-bold shrink-0">
+                  ★ {job.client.avgRating.toFixed(1)} ({job.client.totalReviews} reviews)
+                </span>
+              )}
             </p>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700 shrink-0">
@@ -264,6 +269,35 @@ function JobDrawer({ job, alreadyBid, onClose, onBid }: {
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{job.description}</p>
           </div>
 
+          {/* Client stats info */}
+          {job.client && (
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4.5 space-y-3 shadow-xs">
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-wide border-b border-slate-200/60 pb-1.5 flex items-center gap-1.5">
+                💼 Thông tin Khách hàng
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs text-slate-650">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Số dự án đã đăng</span>
+                  <span className="font-extrabold text-slate-850 mt-0.5">{job.client.totalJobsPosted ?? 0} dự án</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tỷ lệ thuê thầu</span>
+                  <span className="font-extrabold text-slate-850 mt-0.5">{job.client.hireRate ?? 0}%</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tổng chi trả</span>
+                  <span className="font-extrabold text-emerald-600 mt-0.5">${(job.client.totalSpent ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Thành viên từ</span>
+                  <span className="font-extrabold text-slate-850 mt-0.5">
+                    {job.client.createdAt ? new Date(job.client.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* AHP weights preview */}
           {job.ahpWeight && (
             <div>
@@ -282,6 +316,44 @@ function JobDrawer({ job, alreadyBid, onClose, onBid }: {
                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${w.value}%` }} />
                     </div>
                     <span className="text-xs font-semibold text-slate-600 w-8 text-right">{w.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Client Reviews Section */}
+          {job.client?.reviews && job.client.reviews.length > 0 && (
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Nhận xét về Khách hàng</p>
+              <div className="space-y-2.5">
+                {job.client.reviews.map((r: any) => (
+                  <div key={r.id} className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 space-y-1.5 shadow-sm">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-extrabold text-slate-700">{r.reviewerName}</span>
+                      <span className="text-slate-400 font-medium">{r.date}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <Star
+                          key={idx}
+                          size={11}
+                          className={
+                            idx < Math.round(r.rating)
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-200'
+                          }
+                        />
+                      ))}
+                      <span className="text-[10px] text-slate-400 font-bold ml-1">
+                        {r.rating.toFixed(1)}/5.0
+                      </span>
+                    </div>
+                    {r.comment && (
+                      <p className="text-xs text-slate-650 leading-relaxed italic bg-white p-2.5 rounded-xl border border-slate-100">
+                        "{r.comment}"
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -566,8 +638,14 @@ export default function JobsTab() {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {job.client?.fullName ?? 'Client'} · {job.category?.name ?? ''}
+                    <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>{job.client?.fullName ?? 'Client'}</span>
+                      {job.client?.avgRating && job.client.avgRating > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] border border-amber-100 font-bold">
+                          ★ {job.client.avgRating.toFixed(1)}
+                        </span>
+                      )}
+                      <span>· {job.category?.name ?? ''}</span>
                     </p>
 
                     {/* Skills */}

@@ -40,6 +40,14 @@ export interface FreelancerProfile {
   assessmentCompleted: boolean;
   assessmentScore: number | null;
   assessmentLevel?: string;
+  reputationMatrix?: Array<{ skill: string; score: number; benchmark: number; reviewsCount: number }>;
+  reviews?: Array<{
+    id: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+    date: string;
+  }>;
 }
 
 export interface Job {
@@ -74,6 +82,7 @@ export interface Bid {
     experienceMatch: number;
   };
   canEdit?: boolean;
+  freelancer?: any;
 }
 
 export interface Milestone {
@@ -98,6 +107,7 @@ export interface Contract {
   milestones: Milestone[];
   createdAt: string;
   clientReviewed?: boolean;
+  freelancerReviewed?: boolean;
 }
 
 export interface Transaction {
@@ -172,9 +182,28 @@ interface FreelancerStore {
   // Contract Actions
   signContract: (contractId: string) => Promise<void>;
   updateMilestoneProgress: (contractId: string, milestoneId: string, progress: number) => Promise<void>;
-  submitMilestoneDeliverable: (contractId: string, milestoneId: string, fileName: string, desc: string) => Promise<void>;
+  submitMilestoneDeliverable: (contractId: string, milestoneId: string, file: File, desc: string) => Promise<void>;
   clientApproveMilestone: (contractId: string, milestoneId: string) => Promise<void>;
-  reviewClient: (contractId: string) => Promise<void>;
+  reviewClient: (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    }
+  ) => Promise<{ success: boolean; error?: string }>;
+  reviewFreelancer: (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    }
+  ) => Promise<{ success: boolean; error?: string }>;
 
   // Wallet Actions
   requestWithdrawal: (amount: number, method: string, details: string) => Promise<{ success: boolean; error?: string }>;
@@ -650,6 +679,8 @@ export const useFreelancer = create<FreelancerStore>()(
             amount: c.totalAmount,
             status: c.status,
             createdAt: new Date(c.createdAt).toISOString().split('T')[0],
+            clientReviewed: c.clientReviewed,
+            freelancerReviewed: c.freelancerReviewed,
             milestones: (c.milestones || []).map((m: any) => ({
               id: m.id,
               name: m.title,
@@ -736,6 +767,7 @@ export const useFreelancer = create<FreelancerStore>()(
             status: b.status,
             matchingScore: b.matchingScore || 85,
             submittedAt: new Date(b.createdAt).toISOString().split('T')[0],
+            freelancer: b.freelancer,
           }));
 
           set((state) => {
@@ -765,12 +797,9 @@ export const useFreelancer = create<FreelancerStore>()(
         }
       },
 
-      submitMilestoneDeliverable: async (contractId, milestoneId, fileName, desc) => {
+      submitMilestoneDeliverable: async (contractId, milestoneId, file, desc) => {
         try {
-          await contractsApi.submitMilestone(contractId, milestoneId, {
-            freelancerNotes: desc,
-            deliverables: [{ fileName, fileUrl: '', description: desc }],
-          });
+          await contractsApi.submitMilestone(contractId, milestoneId, file, desc);
           await get().fetchContracts();
         } catch (error) {
           console.error('submitMilestoneDeliverable failed:', error);
@@ -788,8 +817,28 @@ export const useFreelancer = create<FreelancerStore>()(
         }
       },
 
-      reviewClient: async (_contractId) => {
-        // reviewClient removed in new API — no-op
+      reviewClient: async (contractId, reviewData) => {
+        try {
+          const res = await contractsApi.reviewClient(contractId, reviewData);
+          await get().fetchContracts();
+          return { success: res.success };
+        } catch (error: any) {
+          console.error('reviewClient failed:', error);
+          const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi đánh giá.';
+          return { success: false, error: errMsg };
+        }
+      },
+
+      reviewFreelancer: async (contractId, reviewData) => {
+        try {
+          const res = await contractsApi.reviewFreelancer(contractId, reviewData);
+          await get().fetchContracts();
+          return { success: res.success };
+        } catch (error: any) {
+          console.error('reviewFreelancer failed:', error);
+          const errMsg = error.response?.data?.message || 'Có lỗi xảy ra khi đánh giá.';
+          return { success: false, error: errMsg };
+        }
       },
 
       requestWithdrawal: async (amount, method, details) => {

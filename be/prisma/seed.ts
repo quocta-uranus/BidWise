@@ -62,14 +62,16 @@ async function main() {
 
   // ── 4. Users ──────────────────────────────────────────────────────────────
   const password = await bcrypt.hash('Password123!', 10);
+  const clientPassword = await bcrypt.hash('33204K@n', 10);
+  const freelancerPassword = await bcrypt.hash('12345678', 10);
 
   const clientUser = await prisma.user.upsert({
-    where: { email: 'client@bidwise.dev' },
+    where: { email: 'kimanh.030304@gmail.com' },
     update: {},
     create: {
-      email: 'client@bidwise.dev',
-      passwordHash: password,
-      fullName: 'Nguyễn Minh Client',
+      email: 'kimanh.030304@gmail.com',
+      passwordHash: clientPassword,
+      fullName: 'Kim Anh (Client)',
       bio: 'Startup founder, looking for top freelancers to build products fast.',
       phone: '0901234567',
       status: 'ACTIVE',
@@ -109,12 +111,12 @@ async function main() {
 
   // Freelancers
   const fl1 = await prisma.user.upsert({
-    where: { email: 'freelancer1@bidwise.dev' },
+    where: { email: 'freelancer2@bidwise.com' },
     update: {},
     create: {
-      email: 'freelancer1@bidwise.dev',
-      passwordHash: password,
-      fullName: 'Lê Văn Hùng',
+      email: 'freelancer2@bidwise.com',
+      passwordHash: freelancerPassword,
+      fullName: 'Lan Anh (Freelancer)',
       bio: 'Senior Full-Stack Developer với 5 năm kinh nghiệm React, NestJS, PostgreSQL. Đã hoàn thành 30+ dự án.',
       phone: '0923456789',
       status: 'ACTIVE',
@@ -150,8 +152,22 @@ async function main() {
     },
   });
 
+  const fl4 = await prisma.user.upsert({
+    where: { email: 'anhltkde180827@fpt.edu.vn' },
+    update: {},
+    create: {
+      email: 'anhltkde180827@fpt.edu.vn',
+      passwordHash: freelancerPassword,
+      fullName: 'KA',
+      bio: 'New Freelancer registered for testing.',
+      phone: '0987654321',
+      status: 'ACTIVE',
+      emailVerifiedAt: new Date(),
+    },
+  });
+
   const flRole = await prisma.role.findUnique({ where: { name: 'FREELANCER' } });
-  for (const fl of [fl1, fl2, fl3]) {
+  for (const fl of [fl1, fl2, fl3, fl4]) {
     if (flRole) {
       await prisma.userRole.upsert({
         where: { userId_roleId: { userId: fl.id, roleId: flRole.id } },
@@ -160,7 +176,7 @@ async function main() {
       });
     }
   }
-  console.log('✅ Users seeded (1 client, 3 freelancers)');
+  console.log('✅ Users seeded (1 client, 4 freelancers)');
 
   // ── 5. Freelancer Profiles ─────────────────────────────────────────────────
   const fp1 = await prisma.freelancerProfile.upsert({
@@ -222,6 +238,22 @@ async function main() {
       bidTokens: 15,
       assessmentCompleted: false,
       assessmentScore: null,
+    },
+  });
+
+  const fp4 = await prisma.freelancerProfile.upsert({
+    where: { userId: fl4.id },
+    update: {},
+    create: {
+      userId: fl4.id,
+      hourlyRate: 40,
+      experience: '4 years',
+      skills: ['React', 'TypeScript', 'NodeJS', 'Tailwind CSS'],
+      available: true,
+      bidTokens: 15,
+      assessmentCompleted: true,
+      assessmentScore: 90,
+      assessmentLevel: 'Gold',
     },
   });
   console.log('✅ Freelancer profiles seeded');
@@ -629,7 +661,7 @@ Hùng`,
   if (!existingContract) {
     const contract = await prisma.contract.create({
       data: {
-        id: 'seed-contract-001',
+        id: 'cmqop7yz2000whuj83jz7qz2q',
         jobId: job4.id,
         bidId: acceptedBid.id,
         clientId: clientUser.id,
@@ -711,7 +743,20 @@ Hùng`,
       },
     });
 
-    console.log('✅ Sample contract seeded (ACTIVE, milestone 1 approved, milestone 2 submitted)');
+    // Seed wallets matching the active contract's state
+    await prisma.wallet.upsert({
+      where: { userId: clientUser.id },
+      update: { balance: 3000, escrow: 770 },
+      create: { userId: clientUser.id, balance: 3000, escrow: 770 },
+    });
+
+    await prisma.wallet.upsert({
+      where: { userId: fl1.id },
+      update: { balance: 330, totalEarned: 330, escrow: 0 },
+      create: { userId: fl1.id, balance: 330, totalEarned: 330, escrow: 0 },
+    });
+
+    console.log('✅ Sample contract seeded and wallets synchronized');
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────

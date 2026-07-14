@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -5,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import ChatWidget from '@/components/ai-chat/ChatWidget';
+
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -12,7 +15,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isDashboardPage = pathname === '/dashboard';
 
   if (isDashboardPage) {
-    return <div className="min-h-screen bg-[#f8fafc]">{children}</div>;
+    return (
+      <div className="min-h-screen bg-[#f8fafc]">
+        {children}
+        <ChatWidget />
+      </div>
+    );
   }
 
   return (
@@ -26,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </div>
+      <ChatWidget />
     </div>
   );
 }

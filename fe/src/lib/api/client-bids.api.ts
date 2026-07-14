@@ -22,6 +22,8 @@ export interface RankedBid {
   matchingScore: number | null;
   matchBreakdown: any;
   submittedAt: string;
+  isTemplateBid: boolean;
+  spamScore: number | null;
   topsisScore: number;
   rank: number;
   scoreBreakdown: {
@@ -55,6 +57,13 @@ export interface FreelancerFullProfile {
     portfolioItems: any[];
     certificates: any[];
   } | null;
+  reviews?: Array<{
+    id: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+    date: string;
+  }>;
 }
 
 export const clientBidsApi = {

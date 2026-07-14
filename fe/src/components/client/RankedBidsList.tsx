@@ -7,6 +7,7 @@ import BidScoreChart from './BidScoreChart';
 import FreelancerProfileModal from './FreelancerProfileModal';
 import BidCompareModal from './BidCompareModal';
 import CreateContractModal from './CreateContractModal';
+import TopFreelancerSuggestions from './TopFreelancerSuggestions';
 import { toast } from 'sonner';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -163,9 +164,18 @@ export default function RankedBidsList({ jobId, jobTitle, onBidAccepted }: Props
       </div>
 
       {/* Bids list */}
-      {filteredBids.length === 0 ? (
+      {data.totalBids === 0 && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5">
+          <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-3">
+            Chưa có bid — AI gợi ý freelancer phù hợp
+          </p>
+          <TopFreelancerSuggestions jobId={jobId} />
+        </div>
+      )}
+
+      {filteredBids.length === 0 && data.totalBids > 0 ? (
         <div className="py-10 text-center text-slate-400 text-sm">Không có bid nào.</div>
-      ) : (
+      ) : data.totalBids > 0 && (
         <div className="space-y-3">
           {filteredBids.map((bid) => {
             const st = STATUS_LABELS[bid.status] ?? { label: bid.status, color: 'bg-slate-100 text-slate-600' };
@@ -200,7 +210,12 @@ export default function RankedBidsList({ jobId, jobTitle, onBidAccepted }: Props
                   {/* Main info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900">{bid.freelancer.fullName}</span>
+                      <button
+                        onClick={() => setProfileModal({ bidId: bid.id })}
+                        className="font-semibold text-slate-900 hover:text-blue-600 hover:underline transition-colors text-left"
+                      >
+                        {bid.freelancer.fullName}
+                      </button>
                       {bid.freelancer.assessmentLevel && (
                         <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                           {bid.freelancer.assessmentLevel}
@@ -209,6 +224,14 @@ export default function RankedBidsList({ jobId, jobTitle, onBidAccepted }: Props
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>
                         {st.label}
                       </span>
+                      {bid.isTemplateBid && (
+                        <span
+                          title={`Spam score: ${bid.spamScore != null ? (bid.spamScore * 100).toFixed(0) + '%' : 'N/A'}`}
+                          className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-bold cursor-help"
+                        >
+                          Template Bid
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-4 mt-1.5 text-sm text-slate-600">

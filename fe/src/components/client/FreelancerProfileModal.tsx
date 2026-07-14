@@ -137,6 +137,43 @@ export default function FreelancerProfileModal({ jobId, bidId, onClose }: Props)
                 </div>
               </div>
             )}
+            {/* Reviews */}
+            {profile.reviews && profile.reviews.length > 0 && (
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-xs font-semibold text-slate-700 mb-3 uppercase tracking-wide">Nhận xét từ khách hàng</p>
+                <div className="space-y-3">
+                  {profile.reviews.map((r) => (
+                    <div key={r.id} className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 space-y-1.5 shadow-sm">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-extrabold text-slate-750">{r.reviewerName}</span>
+                        <span className="text-slate-400 font-medium">{r.date}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <Star
+                            key={idx}
+                            size={12}
+                            className={
+                              idx < Math.round(r.rating)
+                                ? 'text-amber-400 fill-amber-400'
+                                : 'text-slate-200'
+                            }
+                          />
+                        ))}
+                        <span className="text-[10px] text-slate-500 font-bold ml-1">
+                          {r.rating.toFixed(1)}/5.0
+                        </span>
+                      </div>
+                      {r.comment && (
+                        <p className="text-xs text-slate-600 leading-relaxed italic bg-white p-2 border border-slate-50 rounded-lg">
+                          "{r.comment}"
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

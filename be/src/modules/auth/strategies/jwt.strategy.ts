@@ -4,12 +4,14 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { AccessTokenPayload } from '../../../common/types/jwt-payload.type';
 import { TokenService } from '../../token/token.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     configService: ConfigService,
     private tokenService: TokenService,
+    private prisma: PrismaService,
   ) {
     const secret = configService.get<string>('jwt.accessSecret');
     if (!secret) throw new Error('JWT_ACCESS_SECRET is not configured');
@@ -25,6 +27,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (blacklisted) {
       throw new UnauthorizedException('TOKEN_REVOKED');
     }
+
+    const userExists = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true },
+    });
+    if (!userExists) {
+      throw new UnauthorizedException('USER_NOT_FOUND');
+    }
+
     return payload;
   }
 }

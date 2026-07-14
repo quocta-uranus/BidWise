@@ -23,6 +23,19 @@ export interface JobResponse {
     id: string;
     fullName: string;
     avatarUrl: string | null;
+    avgRating?: number;
+    totalReviews?: number;
+    totalJobsPosted?: number;
+    hireRate?: number;
+    totalSpent?: number;
+    createdAt?: string;
+    reviews?: Array<{
+      id: string;
+      reviewerName: string;
+      rating: number;
+      comment: string;
+      date: string;
+    }>;
   };
   _count?: {
     bids: number;

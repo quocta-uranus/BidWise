@@ -44,6 +44,8 @@ function mapApiToProfile(api: ApiFreelancerProfile): FreelancerProfile {
       verifyLink: c.verifyLink,
       verified: c.verified,
     })),
+    reputationMatrix: api.reputationMatrix,
+    reviews: api.reviews,
   };
 }
 

@@ -10,6 +10,13 @@ export interface AuthUser {
   twoFactorEnabled: boolean;
   roles: string[];
   status: string;
+  reviews?: Array<{
+    id: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+    date: string;
+  }>;
 }
 
 export interface AuthResponse {

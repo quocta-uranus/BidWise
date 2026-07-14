@@ -50,6 +50,9 @@ export interface Contract {
   cancelReason: string | null;
   autoApprovalDays: number;
   createdAt: string;
+  updatedAt: string;
+  clientReviewed: boolean;
+  freelancerReviewed: boolean;
   milestones: Milestone[];
   client: { id: string; fullName: string; avatarUrl: string | null };
   freelancer: { id: string; fullName: string; avatarUrl: string | null };
@@ -121,12 +124,20 @@ export const contractsApi = {
   submitMilestone: async (
     contractId: string,
     milestoneId: string,
-    data: {
-      freelancerNotes?: string;
-      deliverables?: { fileName: string; fileUrl: string; description?: string }[];
-    },
-  ) => {
-    const res = await api.post(`/freelancer/contracts/${contractId}/milestones/${milestoneId}/submit`, data);
+    file: File,
+    description: string,
+  ): Promise<Milestone> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('description', description);
+
+    const res = await api.post(
+      `/freelancer/contracts/${contractId}/milestones/${milestoneId}/submit`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      },
+    );
     return res.data.data;
   },
 
@@ -140,6 +151,34 @@ export const contractsApi = {
 
   cancelFreelancerContract: async (contractId: string, reason: string) => {
     const res = await api.patch(`/freelancer/contracts/${contractId}/cancel`, { reason });
+    return res.data.data;
+  },
+
+  reviewFreelancer: async (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    },
+  ): Promise<{ success: boolean }> => {
+    const res = await api.post(`/client/contracts/${contractId}/review-freelancer`, reviewData);
+    return res.data.data;
+  },
+
+  reviewClient: async (
+    contractId: string,
+    reviewData: {
+      qualityRating: number;
+      commRating: number;
+      speedRating: number;
+      comment?: string;
+      anonymous?: boolean;
+    },
+  ): Promise<{ success: boolean }> => {
+    const res = await api.post(`/freelancer/contracts/${contractId}/review-client`, reviewData);
     return res.data.data;
   },
 };

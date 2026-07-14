@@ -13,13 +13,26 @@ export class UsersService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { userRoles: { include: { role: true } } },
+      include: {
+        userRoles: { include: { role: true } },
+        reviewsReceived: {
+          include: { reviewer: { select: { fullName: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
       omit: { passwordHash: true },
     });
     if (!user) throw new NotFoundException('USER_NOT_FOUND');
     return {
       ...user,
       roles: user.userRoles.map((ur) => ur.role.name),
+      reviews: user.reviewsReceived.map((r) => ({
+        id: r.id,
+        reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
+        rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+        comment: r.comment,
+        date: r.createdAt.toISOString().split('T')[0],
+      })),
     };
   }
 

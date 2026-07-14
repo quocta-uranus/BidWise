@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth/auth.store';
+import { useUnreadCount } from '@/hooks/useChat';
 import {
   LayoutDashboard,
   FolderOpen,
@@ -18,6 +19,7 @@ import {
   Tags,
   DollarSign,
   GraduationCap,
+  MessageSquare,
 } from 'lucide-react';
 
 import { useEffect, useState } from 'react';
@@ -28,6 +30,7 @@ export default function Sidebar() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, logout, isLoading } = useAuthStore();
+  const { count: unreadCount } = useUnreadCount();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export default function Sidebar() {
   const isClient = user?.roles.includes('CLIENT');
 
   let roleSubtitle = 'User';
-  let navItems: { label: string; href: string; icon: any }[] = [];
+  let navItems: { label: string; href: string; icon: any; badge?: number }[] = [];
   let actionButton = null;
 
   if (isAdmin) {
@@ -66,6 +69,7 @@ export default function Sidebar() {
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'Projects', href: '/projects', icon: FolderOpen },
       { label: 'Proposals', href: '/proposals', icon: FileText },
+      { label: 'Messages', href: '/messages', icon: MessageSquare, badge: unreadCount },
       { label: 'Profile', href: '/profile', icon: User },
     ];
     actionButton = { label: 'New Bid', icon: Plus };
@@ -75,6 +79,7 @@ export default function Sidebar() {
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { label: 'My Projects', href: '/client/jobs', icon: FolderOpen },
       { label: 'Freelancers', href: '/freelancers', icon: Briefcase },
+      { label: 'Messages', href: '/messages', icon: MessageSquare, badge: unreadCount },
     ];
   } else {
     roleSubtitle = 'Welcome';
@@ -125,7 +130,12 @@ export default function Sidebar() {
               }`}
             >
               <Icon className="w-5 h-5" />
-              <span className="text-sm">{item.label}</span>
+              <span className="text-sm flex-1">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

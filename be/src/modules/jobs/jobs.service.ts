@@ -111,7 +111,7 @@ export class JobsService {
         ahpWeight: true,
         attachments: true,
         category: true,
-        client: { select: { id: true, fullName: true, avatarUrl: true } },
+        client: { select: { id: true, fullName: true, avatarUrl: true, createdAt: true } },
         _count: {
           select: { bids: true }
         }
@@ -119,7 +119,52 @@ export class JobsService {
     });
 
     if (!job) throw new NotFoundException('Job not found');
-    return job;
+
+    const [reviews, totalJobsPosted, contracts] = await Promise.all([
+      this.prisma.review.findMany({
+        where: { revieweeId: job.clientId },
+        include: {
+          reviewer: { select: { fullName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.job.count({
+        where: { clientId: job.clientId, deletedAt: null }
+      }),
+      this.prisma.contract.findMany({
+        where: { clientId: job.clientId }
+      })
+    ]);
+
+    const totalReviews = reviews.length;
+    const avgRating = totalReviews > 0
+      ? reviews.reduce((sum, r) => sum + (r.qualityRating + r.commRating + r.speedRating) / 3, 0) / totalReviews
+      : 0;
+
+    const totalHired = contracts.length;
+    const hireRate = totalJobsPosted > 0 ? Math.round((totalHired / totalJobsPosted) * 100) : 0;
+    const totalSpent = contracts
+      .filter(c => c.status === 'COMPLETED')
+      .reduce((sum, c) => sum + c.totalAmount, 0);
+
+    return {
+      ...job,
+      client: {
+        ...job.client,
+        avgRating,
+        totalReviews,
+        totalJobsPosted,
+        hireRate,
+        totalSpent,
+        reviews: reviews.map((r) => ({
+          id: r.id,
+          reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
+          rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+          comment: r.comment,
+          date: r.createdAt.toISOString().split('T')[0],
+        })),
+      },
+    };
   }
 
   async update(id: string, clientId: string, updateJobDto: UpdateJobDto) {
@@ -202,12 +247,129 @@ export class JobsService {
   }
 
   async getBidsForJob(jobId: string) {
-    return this.prisma.bid.findMany({
+    const bids = await this.prisma.bid.findMany({
       where: { jobId },
       include: {
-        freelancer: true,
+        freelancer: {
+          include: {
+            freelancerProfile: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return Promise.all(
+      bids.map(async (bid) => {
+        const reviews = await this.prisma.review.findMany({
+          where: { revieweeId: bid.freelancerId },
+        });
+
+        const totalReviews = reviews.length;
+        let avgRating = 5.0;
+        if (totalReviews > 0) {
+          const sum = reviews.reduce((acc, r) => acc + (r.qualityRating + r.commRating + r.speedRating) / 3, 0);
+          avgRating = Math.round((sum / totalReviews) * 10) / 10;
+        }
+
+        const repMatrix = await this.calculateFreelancerReputation(
+          bid.freelancerId,
+          bid.freelancer.freelancerProfile?.skills || [],
+        );
+
+        return {
+          ...bid,
+          freelancer: {
+            ...bid.freelancer,
+            rating: avgRating,
+            reviewsCount: totalReviews,
+            reputationMatrix: repMatrix,
+          },
+        };
+      }),
+    );
+  }
+
+  private async calculateFreelancerReputation(freelancerId: string, profileSkills: string[]) {
+    const reviews = await this.prisma.review.findMany({
+      where: { revieweeId: freelancerId },
+      include: {
+        contract: {
+          include: {
+            job: {
+              include: {
+                jobSkills: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const skillStats: Record<string, { sum: number; count: number }> = {};
+
+    for (const review of reviews) {
+      const skills = review.contract.job.jobSkills.map(s => s.name);
+      const rating = (review.qualityRating + review.commRating + review.speedRating) / 3;
+      for (const skill of skills) {
+        const normalizedSkill = skill.trim();
+        if (!skillStats[normalizedSkill]) {
+          skillStats[normalizedSkill] = { sum: 0, count: 0 };
+        }
+        skillStats[normalizedSkill].sum += rating;
+        skillStats[normalizedSkill].count += 1;
+      }
+    }
+
+    const benchmarks: Record<string, number> = {
+      'React': 72,
+      'Next.js': 72,
+      'React / Next.js': 72,
+      'TypeScript': 65,
+      'NestJS': 62,
+      'NestJS / API Backend': 62,
+      'Node.js': 62,
+      'Docker': 60,
+      'PostgreSQL': 60,
+      'Docker / PostgreSQL': 60,
+      'React Native': 55,
+      'React Native / Mobile': 55,
+      'Tailwind CSS': 70,
+      'CSS': 60,
+    };
+
+    const displaySkills = profileSkills.length > 0 ? profileSkills : ['React / Next.js', 'TypeScript', 'NestJS / API Backend'];
+
+    return displaySkills.map(skill => {
+      const normalizedSkill = skill.trim();
+      let scoreSum = 0;
+      let reviewCount = 0;
+
+      for (const statSkill of Object.keys(skillStats)) {
+        if (statSkill.toLowerCase() === normalizedSkill.toLowerCase() || 
+            normalizedSkill.toLowerCase().includes(statSkill.toLowerCase()) ||
+            statSkill.toLowerCase().includes(normalizedSkill.toLowerCase())) {
+          scoreSum += skillStats[statSkill].sum;
+          reviewCount += skillStats[statSkill].count;
+        }
+      }
+
+      const score = reviewCount > 0 ? Math.round((scoreSum / reviewCount) * 20) : 0;
+      
+      let benchmark = 60;
+      for (const key of Object.keys(benchmarks)) {
+        if (normalizedSkill.toLowerCase().includes(key.toLowerCase())) {
+          benchmark = benchmarks[key];
+          break;
+        }
+      }
+
+      return {
+        skill,
+        score,
+        benchmark,
+        reviewsCount: reviewCount,
+      };
     });
   }
 
@@ -349,8 +511,10 @@ export class JobsService {
       this.prisma.job.count({ where }),
     ]);
 
+    const jobsWithRating = await this.attachClientRatings(jobs);
+
     return {
-      jobs,
+      jobs: jobsWithRating,
       pagination: {
         page,
         limit,
@@ -371,7 +535,7 @@ export class JobsService {
 
     if (!profile || !profile.skills || profile.skills.length === 0) {
       // Cold-start: return newest jobs
-      return this.prisma.job.findMany({
+      const coldJobs = await this.prisma.job.findMany({
         where: { deletedAt: null, isHidden: false, status: JobStatus.OPEN },
         include: {
           category: true,
@@ -381,6 +545,7 @@ export class JobsService {
         orderBy: { createdAt: 'desc' },
         take: limit,
       });
+      return this.attachClientRatings(coldJobs);
     }
 
     const freelancerSkills = profile.skills.map(s => s.toLowerCase());
@@ -427,8 +592,9 @@ export class JobsService {
 
     // Sort by match score
     scoredJobs.sort((a, b) => b.matchScore - a.matchScore);
+    const slicedJobs = scoredJobs.slice(0, limit);
 
-    return scoredJobs.slice(0, limit);
+    return this.attachClientRatings(slicedJobs);
   }
 
   private calculateTfIdf(skills: string[], allSkillSets: string[][]): Record<string, number> {
@@ -525,7 +691,8 @@ export class JobsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return bookmarks.map(b => b.job);
+    const jobs = bookmarks.map(b => b.job);
+    return this.attachClientRatings(jobs);
   }
 
   async isBookmarked(userId: string, jobId: string) {
@@ -566,6 +733,85 @@ export class JobsService {
     return this.prisma.jobAlert.update({
       where: { userId },
       data: { enabled: !alert.enabled },
+    });
+  }
+
+  private async attachClientRatings<T extends { clientId: string, client?: any }>(jobs: T[]): Promise<T[]> {
+    if (jobs.length === 0) return jobs;
+    const clientIds = Array.from(new Set(jobs.map(j => j.clientId)));
+    
+    const [reviews, jobCounts, contracts] = await Promise.all([
+      this.prisma.review.findMany({
+        where: { revieweeId: { in: clientIds } },
+        select: {
+          revieweeId: true,
+          qualityRating: true,
+          commRating: true,
+          speedRating: true,
+        }
+      }),
+      this.prisma.job.groupBy({
+        by: ['clientId'],
+        where: { clientId: { in: clientIds }, deletedAt: null },
+        _count: { id: true }
+      }),
+      this.prisma.contract.findMany({
+        where: { clientId: { in: clientIds } },
+        select: {
+          clientId: true,
+          status: true,
+          totalAmount: true
+        }
+      })
+    ]);
+
+    const clientRatings: Record<string, { sum: number; count: number }> = {};
+    for (const r of reviews) {
+      if (!clientRatings[r.revieweeId]) {
+        clientRatings[r.revieweeId] = { sum: 0, count: 0 };
+      }
+      clientRatings[r.revieweeId].sum += (r.qualityRating + r.commRating + r.speedRating) / 3;
+      clientRatings[r.revieweeId].count += 1;
+    }
+
+    const clientJobCounts: Record<string, number> = {};
+    for (const jc of jobCounts) {
+      clientJobCounts[jc.clientId] = jc._count.id;
+    }
+
+    const clientContracts: Record<string, { totalHired: number; completedSpent: number }> = {};
+    for (const c of contracts) {
+      if (!clientContracts[c.clientId]) {
+        clientContracts[c.clientId] = { totalHired: 0, completedSpent: 0 };
+      }
+      clientContracts[c.clientId].totalHired += 1;
+      if (c.status === 'COMPLETED') {
+        clientContracts[c.clientId].completedSpent += c.totalAmount;
+      }
+    }
+
+    return jobs.map(job => {
+      const ratingInfo = clientRatings[job.clientId];
+      const avgRating = ratingInfo && ratingInfo.count > 0 ? ratingInfo.sum / ratingInfo.count : 0;
+      const totalReviews = ratingInfo ? ratingInfo.count : 0;
+
+      const totalJobsPosted = clientJobCounts[job.clientId] ?? 0;
+      const contractInfo = clientContracts[job.clientId];
+      const totalHired = contractInfo ? contractInfo.totalHired : 0;
+      const hireRate = totalJobsPosted > 0 ? Math.round((totalHired / totalJobsPosted) * 100) : 0;
+      const totalSpent = contractInfo ? contractInfo.completedSpent : 0;
+
+      if (job.client) {
+        job.client = {
+          ...job.client,
+          avgRating,
+          totalReviews,
+          totalJobsPosted,
+          hireRate,
+          totalSpent
+        };
+      }
+      return job;
     });
   }
 }

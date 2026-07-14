@@ -27,6 +27,10 @@ import { FreelancerModule } from './modules/freelancer/freelancer.module';
 import { BidsModule } from './modules/bids/bids.module';
 import { ClientBidsModule } from './modules/client-bids/client-bids.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { RecommendationModule } from './modules/recommendation/recommendation.module';
+import { ReputationModule } from './modules/reputation/reputation.module';
 
 @Module({
   imports: [
@@ -73,6 +77,10 @@ import { ReportsModule } from './modules/reports/reports.module';
     BidsModule,
     ClientBidsModule,
     ReportsModule,
+    AiChatModule,
+    ChatModule,
+    RecommendationModule,
+    ReputationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

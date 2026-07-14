@@ -12,10 +12,18 @@ import {
   ReviewMilestoneDto,
   SubmitMilestoneDto,
 } from './dto/contracts.dto';
+import { ReviewFreelancerDto } from './dto/review-freelancer.dto';
+import { join, extname } from 'path';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, createReadStream } from 'fs';
+import { randomUUID } from 'crypto';
+import { ReputationService } from '../reputation/reputation.service';
 
 @Injectable()
 export class ContractsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private reputationService: ReputationService,
+  ) {}
 
   async createContract(clientId: string, dto: CreateContractDto) {
     const bid = await this.prisma.bid.findUnique({
@@ -42,6 +50,41 @@ export class ContractsService {
     const now = new Date();
 
     return this.prisma.$transaction(async (tx) => {
+      let clientWallet = await tx.wallet.findUnique({
+        where: { userId: clientId },
+      });
+      if (!clientWallet) {
+        clientWallet = await tx.wallet.create({
+          data: { userId: clientId, balance: 0, escrow: 0, totalEarned: 0 },
+        });
+      }
+
+      if (clientWallet.balance < totalAmount) {
+        throw new BadRequestException('INSUFFICIENT_FUNDS_FOR_ESCROW');
+      }
+
+      await tx.wallet.update({
+        where: { id: clientWallet.id },
+        data: {
+          balance: { decrement: totalAmount },
+          escrow: { increment: totalAmount },
+        },
+      });
+
+      await tx.transaction.create({
+        data: {
+          walletId: clientWallet.id,
+          type: 'ESCROW',
+          amount: totalAmount,
+          description: `Ký quỹ hợp đồng: ${bid.job.title}`,
+          descKey: 'escrowLock',
+          descParams: {
+            jobId: bid.jobId,
+          },
+          status: 'SUCCESS',
+        },
+      });
+
       const contract = await tx.contract.create({
         data: {
           jobId: bid.jobId,
@@ -118,7 +161,10 @@ export class ContractsService {
     return this.prisma.contract.findMany({
       where,
       include: {
-        milestones: { orderBy: { order: 'asc' }, select: { id: true, title: true, status: true, deadline: true, amount: true, percentage: true } },
+        milestones: {
+          orderBy: { order: 'asc' },
+          include: { deliverables: { orderBy: { uploadedAt: 'desc' } } },
+        },
         client: { select: { id: true, fullName: true, avatarUrl: true } },
         freelancer: { select: { id: true, fullName: true, avatarUrl: true } },
         job: { select: { id: true, title: true } },
@@ -127,38 +173,71 @@ export class ContractsService {
     });
   }
 
-  // CL-21 / FL-22: Freelancer submits a milestone
-  async submitMilestone(contractId: string, milestoneId: string, freelancerId: string, dto: SubmitMilestoneDto) {
+  // FL-22: Freelancer submits a milestone (Modified for actual file upload)
+  async submitMilestone(
+    contractId: string,
+    milestoneId: string,
+    freelancerId: string,
+    description: string,
+    file: any,
+  ) {
     const { contract, milestone } = await this.getMilestoneForFreelancer(contractId, milestoneId, freelancerId);
 
     if (!['NOT_STARTED', 'IN_PROGRESS', 'REJECTED', 'REVISION_REQUESTED'].includes(milestone.status)) {
       throw new BadRequestException('MILESTONE_CANNOT_BE_SUBMITTED');
     }
 
+    if (!file) {
+      throw new BadRequestException('Vui lòng chọn file để nộp.');
+    }
+
     const autoApproveAt = new Date();
     autoApproveAt.setDate(autoApproveAt.getDate() + contract.autoApprovalDays);
 
+    const dir = join(process.cwd(), 'uploads', 'contracts', contractId, 'milestones', milestoneId);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    } else {
+      try {
+        const files = readdirSync(dir);
+        for (const f of files) {
+          unlinkSync(join(dir, f));
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    const ext = extname(file.originalname).toLowerCase() || '.bin';
+    const storedName = `${randomUUID()}${ext}`;
+    const storagePath = join(dir, storedName);
+    writeFileSync(storagePath, file.buffer);
+
     return this.prisma.$transaction(async (tx) => {
+      // Clear any previous deliverables
+      await tx.milestoneDeliverable.deleteMany({
+        where: { milestoneId }
+      });
+
+      // Create new deliverable record
+      const deliverable = await tx.milestoneDeliverable.create({
+        data: {
+          milestoneId,
+          fileName: file.originalname,
+          fileUrl: `/api/v1/contracts/${contractId}/milestones/${milestoneId}/download`,
+          fileSize: file.size,
+          mimeType: file.mimetype,
+          description: description || '',
+        }
+      });
+
       const updated = await tx.milestone.update({
         where: { id: milestoneId },
         data: {
           status: 'SUBMITTED',
           submittedAt: new Date(),
-          freelancerNotes: dto.freelancerNotes,
+          freelancerNotes: description || '',
           autoApproveAt,
-          ...(dto.deliverables?.length
-            ? {
-                deliverables: {
-                  create: dto.deliverables.map((d) => ({
-                    fileName: d.fileName,
-                    fileUrl: d.fileUrl,
-                    fileSize: d.fileSize,
-                    mimeType: d.mimeType,
-                    description: d.description,
-                  })),
-                },
-              }
-            : {}),
         },
         include: { deliverables: true },
       });
@@ -166,7 +245,52 @@ export class ContractsService {
     });
   }
 
-  // CL-21: Client reviews a milestone
+  // Secure deliverable downloader
+  async downloadDeliverable(
+    userId: string,
+    contractId: string,
+    milestoneId: string,
+    res: any,
+  ) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Không tìm thấy hợp đồng.');
+    }
+
+    const isAuthorized = contract.freelancerId === userId || contract.clientId === userId;
+    if (!isAuthorized) {
+      throw new ForbiddenException('Bạn không có quyền tải file này.');
+    }
+
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      include: { deliverables: true },
+    });
+
+    if (!milestone || milestone.deliverables.length === 0) {
+      throw new NotFoundException('Không tìm thấy file nộp bài cho cột mốc này.');
+    }
+
+    const deliverable = milestone.deliverables[0];
+    const dir = join(process.cwd(), 'uploads', 'contracts', contractId, 'milestones', milestoneId);
+    if (!existsSync(dir)) {
+      throw new NotFoundException('Thư mục file không tồn tại trên hệ thống.');
+    }
+
+    const files = readdirSync(dir);
+    if (files.length === 0) {
+      throw new NotFoundException('File đã bị xóa hoặc không tìm thấy trên đĩa.');
+    }
+
+    const filePath = join(dir, files[0]);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(deliverable.fileName)}"`);
+    createReadStream(filePath).pipe(res);
+  }
+
+  // CL-21: Client reviews a milestone (With payment/escrow integration)
   async reviewMilestone(contractId: string, milestoneId: string, clientId: string, dto: ReviewMilestoneDto) {
     const { contract, milestone } = await this.getMilestoneForClient(contractId, milestoneId, clientId);
 
@@ -175,6 +299,25 @@ export class ContractsService {
     }
 
     if (dto.action === 'APPROVED') {
+      const clientWallet = await this.prisma.wallet.findUnique({
+        where: { userId: clientId },
+      });
+
+      let freelancerWallet = await this.prisma.wallet.findUnique({
+        where: { userId: contract.freelancerId },
+      });
+
+      if (!freelancerWallet) {
+        freelancerWallet = await this.prisma.wallet.create({
+          data: {
+            userId: contract.freelancerId,
+            balance: 0,
+            escrow: 0,
+            totalEarned: 0,
+          },
+        });
+      }
+
       const updated = await this.prisma.$transaction(async (tx) => {
         const m = await tx.milestone.update({
           where: { id: milestoneId },
@@ -184,6 +327,56 @@ export class ContractsService {
             clientFeedback: dto.feedback,
           },
         });
+
+        // Escrow deduction & freelancer crediting
+        if (clientWallet) {
+          await tx.wallet.update({
+            where: { id: clientWallet.id },
+            data: { escrow: { decrement: milestone.amount } },
+          });
+        }
+
+        await tx.wallet.update({
+          where: { id: freelancerWallet.id },
+          data: {
+            balance: { increment: milestone.amount },
+            totalEarned: { increment: milestone.amount },
+          },
+        });
+
+        // Transaction logs for freelancer
+        await tx.transaction.create({
+          data: {
+            walletId: freelancerWallet.id,
+            type: 'EARNED',
+            amount: milestone.amount,
+            description: `Nghiệm thu cột mốc: ${milestone.title}`,
+            descKey: 'milestoneApproved',
+            descParams: {
+              jobId: contract.jobId,
+              milestoneKey: milestone.title,
+            },
+            status: 'SUCCESS',
+          },
+        });
+
+        // Transaction logs for client
+        if (clientWallet) {
+          await tx.transaction.create({
+            data: {
+              walletId: clientWallet.id,
+              type: 'EARNED',
+              amount: milestone.amount,
+              description: `Giải ngân cột mốc: ${milestone.title}`,
+              descKey: 'milestoneApproved',
+              descParams: {
+                jobId: contract.jobId,
+                milestoneKey: milestone.title,
+              },
+              status: 'SUCCESS',
+            },
+          });
+        }
 
         // Check if all milestones are approved → complete contract
         const allMilestones = await tx.milestone.findMany({ where: { contractId } });
@@ -219,6 +412,18 @@ export class ContractsService {
 
         return m;
       });
+      // Fire-and-forget: update multi-dimensional reputation after milestone approved
+      if (dto.rating) {
+        this.prisma.job
+          .findUnique({ where: { id: contract.jobId }, select: { skills: true } })
+          .then((job) => {
+            if (job) {
+              this.reputationService.updateAfterReview(contract.freelancerId, job.skills, dto.rating!);
+            }
+          })
+          .catch(() => void 0);
+      }
+
       return updated;
     }
 
@@ -239,6 +444,92 @@ export class ContractsService {
     }
 
     throw new BadRequestException('INVALID_REVIEW_ACTION');
+  }
+
+  // Client reviews Freelancer
+  async reviewFreelancer(clientId: string, contractId: string, dto: ReviewFreelancerDto) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract || contract.clientId !== clientId) {
+      throw new BadRequestException('Hợp đồng không hợp lệ hoặc bạn không phải là chủ dự án.');
+    }
+
+    if (contract.status !== 'COMPLETED') {
+      throw new BadRequestException('Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành.');
+    }
+
+    if (contract.freelancerReviewed) {
+      throw new BadRequestException('Bạn đã đánh giá freelancer cho hợp đồng này rồi.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create Review
+      const review = await tx.review.create({
+        data: {
+          contractId,
+          reviewerId: clientId,
+          revieweeId: contract.freelancerId,
+          qualityRating: dto.qualityRating,
+          commRating: dto.commRating,
+          speedRating: dto.speedRating,
+          comment: dto.comment || '',
+          anonymous: dto.anonymous || false,
+        },
+      });
+
+      // Update contract
+      await tx.contract.update({
+        where: { id: contractId },
+        data: { freelancerReviewed: true },
+      });
+
+      return { success: true, reviewId: review.id };
+    });
+  }
+
+  // Freelancer reviews Client
+  async reviewClient(freelancerId: string, contractId: string, dto: ReviewFreelancerDto) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract || contract.freelancerId !== freelancerId) {
+      throw new BadRequestException('Hợp đồng không hợp lệ hoặc bạn không phải là freelancer của dự án.');
+    }
+
+    if (contract.status !== 'COMPLETED') {
+      throw new BadRequestException('Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành.');
+    }
+
+    if (contract.clientReviewed) {
+      throw new BadRequestException('Bạn đã đánh giá client cho hợp đồng này rồi.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create Review
+      const review = await tx.review.create({
+        data: {
+          contractId,
+          reviewerId: freelancerId,
+          revieweeId: contract.clientId,
+          qualityRating: dto.qualityRating,
+          commRating: dto.commRating,
+          speedRating: dto.speedRating,
+          comment: dto.comment || '',
+          anonymous: dto.anonymous || false,
+        },
+      });
+
+      // Update contract
+      await tx.contract.update({
+        where: { id: contractId },
+        data: { clientReviewed: true },
+      });
+
+      return { success: true, reviewId: review.id };
+    });
   }
 
   // CL-22: Cancel contract
