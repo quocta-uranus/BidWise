@@ -35,7 +35,7 @@ const contracts_module_1 = require("./modules/contracts/contracts.module");
 const freelancer_module_1 = require("./modules/freelancer/freelancer.module");
 const bids_module_1 = require("./modules/bids/bids.module");
 const client_bids_module_1 = require("./modules/client-bids/client-bids.module");
-const contracts_module_1 = require("./modules/contracts/contracts.module");
+const reports_module_1 = require("./modules/reports/reports.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -83,7 +83,7 @@ exports.AppModule = AppModule = __decorate([
             freelancer_module_1.FreelancerModule,
             bids_module_1.BidsModule,
             client_bids_module_1.ClientBidsModule,
-            contracts_module_1.ContractsModule,
+            reports_module_1.ReportsModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },

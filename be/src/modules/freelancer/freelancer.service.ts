@@ -265,26 +265,45 @@ export class FreelancerService {
   }
 
   getAssessmentQuestions() {
-    return {
+    return this.getActiveAssessmentQuestions().then((questions) => ({
       title: 'JavaScript & React Skill Assessment',
-      totalQuestions: ASSESSMENT_QUESTIONS.length,
-      questions: ASSESSMENT_QUESTIONS.map(({ id, question, options, type }) => ({
+      totalQuestions: questions.length,
+      questions: questions.map(({ id, question, options, type }) => ({
         id,
         question,
         options,
         type,
       })),
-    };
+    }));
+  }
+
+  private async getActiveAssessmentQuestions() {
+    const dbQuestions = await this.prisma.assessmentQuestion.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    });
+    if (dbQuestions.length > 0) {
+      return dbQuestions.map((q) => ({
+        id: q.id,
+        question: q.question,
+        options: q.options,
+        correctIndex: q.correctIndex,
+        type: q.type as 'mcq' | 'coding',
+      }));
+    }
+    return ASSESSMENT_QUESTIONS;
   }
 
   async submitAssessment(userId: string, dto: SubmitAssessmentDto) {
-    if (dto.answers.length !== ASSESSMENT_QUESTIONS.length) {
+    const questions = await this.getActiveAssessmentQuestions();
+
+    if (dto.answers.length !== questions.length) {
       throw new BadRequestException('ASSESSMENT_INCOMPLETE');
     }
 
     const answerMap: Record<string, number> = {};
     for (const answer of dto.answers) {
-      const question = ASSESSMENT_QUESTIONS.find((q) => q.id === answer.questionId);
+      const question = questions.find((q) => q.id === answer.questionId);
       if (!question) throw new BadRequestException('INVALID_QUESTION_ID');
       if (answer.selectedIndex >= question.options.length) {
         throw new BadRequestException('INVALID_ANSWER_INDEX');
@@ -292,7 +311,7 @@ export class FreelancerService {
       answerMap[answer.questionId] = answer.selectedIndex;
     }
 
-    const result = gradeAssessment(answerMap);
+    const result = gradeAssessment(answerMap, questions);
     await this.getProfileRecord(userId);
     await this.prisma.freelancerProfile.update({
       where: { userId },
@@ -316,10 +335,11 @@ export class FreelancerService {
     if (!profile || !profile.assessmentCompleted) {
       return { completed: false, score: null, level: null };
     }
+    const questions = await this.getActiveAssessmentQuestions();
     return {
       completed: true,
       score: profile.assessmentScore,
-      maxScore: ASSESSMENT_QUESTIONS.length,
+      maxScore: questions.length,
       level: profile.assessmentLevel,
       completedAt: profile.assessmentCompletedAt?.toISOString() ?? null,
     };

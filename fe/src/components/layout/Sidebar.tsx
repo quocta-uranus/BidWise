@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import {
   LayoutDashboard,
@@ -13,7 +13,11 @@ import {
   LogOut,
   Plus,
   Users,
-  Briefcase
+  Briefcase,
+  AlertTriangle,
+  Tags,
+  DollarSign,
+  GraduationCap,
 } from 'lucide-react';
 
 import { useEffect, useState } from 'react';
@@ -21,6 +25,7 @@ import { useRouter } from 'next/navigation';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, logout, isLoading } = useAuthStore();
   const [mounted, setMounted] = useState(false);
@@ -46,7 +51,14 @@ export default function Sidebar() {
   if (isAdmin) {
     roleSubtitle = 'Admin Panel';
     navItems = [
-      { label: 'Manage Accounts', href: '/admin', icon: Users },
+      { label: 'Tổng quan', href: '/admin?tab=dashboard', icon: LayoutDashboard },
+      { label: 'Quản lý Users', href: '/admin?tab=users', icon: Users },
+      { label: 'Quản lý Jobs', href: '/admin?tab=jobs', icon: Briefcase },
+      { label: 'Reports', href: '/admin?tab=reports', icon: AlertTriangle },
+      { label: 'Category & Skill', href: '/admin?tab=categories', icon: Tags },
+      { label: 'Giao dịch', href: '/admin?tab=transactions', icon: DollarSign },
+      { label: 'Cấu hình', href: '/admin?tab=config', icon: Settings },
+      { label: 'Assessment', href: '/admin?tab=assessment', icon: GraduationCap },
     ];
   } else if (isFreelancer) {
     roleSubtitle = 'Pro Freelancer';
@@ -97,7 +109,10 @@ export default function Sidebar() {
       {/* Main Nav */}
       <nav className="flex-1 px-4 space-y-1.5 mt-2">
         {navItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const tabParam = item.href.includes('tab=') ? item.href.split('tab=')[1] : null;
+          const isActive = tabParam
+            ? pathname.startsWith('/admin') && searchParams.get('tab') === tabParam
+            : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
             <Link
