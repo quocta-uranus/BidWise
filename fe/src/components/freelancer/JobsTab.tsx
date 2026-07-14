@@ -5,6 +5,8 @@ import { Search, Bookmark, BookmarkCheck, Send, X, ChevronDown, Star, Clock, Dol
 import { jobsApi, JobResponse, JobSearchParams } from '@/lib/api/jobs.api';
 import { bidsApi } from '@/lib/api/bids.api';
 import { toast } from 'sonner';
+import RecommendedJobsSection from './RecommendedJobsSection';
+import { RecommendedJob } from '@/lib/api/recommendation.api';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -587,8 +589,23 @@ export default function JobsTab() {
         )}
       </div>
 
-      {/* ── Job list ── */}
-      {loading ? (
+      {/* ── Recommended jobs (MC-09 TF-IDF) ── */}
+      {subTab === 'suggest' && (
+        <RecommendedJobsSection
+          limit={20}
+          onBid={async (rec: RecommendedJob) => {
+            try {
+              const full = await jobsApi.findOne(rec.jobId);
+              setBidJob(full);
+            } catch {
+              toast.error('Không thể tải thông tin job');
+            }
+          }}
+        />
+      )}
+
+      {/* ── Job list (all / bookmarks tabs only) ── */}
+      {subTab !== 'suggest' && (loading ? (
         <div className="py-16 text-center text-slate-400">Đang tải...</div>
       ) : jobs.length === 0 ? (
         <div className="py-16 text-center space-y-2">
@@ -713,7 +730,7 @@ export default function JobsTab() {
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* ── Pagination ── */}
       {subTab === 'all' && total > 12 && (
