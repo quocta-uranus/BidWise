@@ -141,6 +141,10 @@ export default function DashboardPage() {
   // Calculations
   const activeBids = bids.filter((b) => b.status !== 'WITHDRAWN');
   const activeContracts = contracts.filter((c) => c.status === 'ACTIVE');
+  const clientReviews = user.reviews ?? [];
+  const clientAvgRating = clientReviews.length > 0
+    ? clientReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / clientReviews.length
+    : 0;
 
   let completeness = 0;
   if (profile.bio) completeness += 15;
@@ -757,18 +761,17 @@ export default function DashboardPage() {
                         </h4>
                         <div className="flex items-center gap-3">
                           <span className="text-3xl font-black text-slate-800">
-                            {(user.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / user.reviews.length).toFixed(1)}
+                            {clientAvgRating.toFixed(1)}
                           </span>
                           <div>
                             <div className="flex gap-0.5">
                               {Array.from({ length: 5 }).map((_, idx) => {
-                                const avg = user.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / user.reviews.length;
                                 return (
                                   <Star
                                     key={idx}
                                     size={12}
                                     className={
-                                      idx < Math.round(avg)
+                                      idx < Math.round(clientAvgRating)
                                         ? 'text-amber-400 fill-amber-400'
                                         : 'text-slate-200'
                                     }
