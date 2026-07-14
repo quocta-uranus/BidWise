@@ -50,16 +50,16 @@ function MatchBreakdownPanel({ breakdown, total }: { breakdown: MatchBreakdown; 
         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${total}%` }} />
       </div>
       <div className="space-y-1.5 pt-1">
-        <ScoreBar label="Kỹ năng"    score={breakdown.skills.score}     max={breakdown.skills.max}     color="bg-blue-500" />
-        <ScoreBar label="Ngân sách"  score={breakdown.budget.score}     max={breakdown.budget.max}     color="bg-emerald-500" />
-        <ScoreBar label="Assessment" score={breakdown.assessment.score} max={breakdown.assessment.max} color="bg-purple-500" />
-        <ScoreBar label="Profile"    score={breakdown.profile.score}    max={breakdown.profile.max}    color="bg-amber-400" />
+        <ScoreBar label="Kỹ năng"    score={breakdown.skills?.score ?? 0}     max={breakdown.skills?.max ?? 0}     color="bg-blue-500" />
+        <ScoreBar label="Ngân sách"  score={breakdown.budget?.score ?? 0}     max={breakdown.budget?.max ?? 0}     color="bg-emerald-500" />
+        <ScoreBar label="Assessment" score={breakdown.assessment?.score ?? 0} max={breakdown.assessment?.max ?? 0} color="bg-purple-500" />
+        <ScoreBar label="Profile"    score={breakdown.profile?.score ?? 0}    max={breakdown.profile?.max ?? 0}    color="bg-amber-400" />
       </div>
       <div className="pt-2 border-t border-slate-100 space-y-1 text-xs text-slate-500">
-        <p className="flex items-start gap-1.5"><span className="text-blue-500 shrink-0 mt-0.5">•</span>{breakdown.skills.explanation}</p>
-        <p className="flex items-start gap-1.5"><span className="text-emerald-500 shrink-0 mt-0.5">•</span>{breakdown.budget.explanation}</p>
-        <p className="flex items-start gap-1.5"><span className="text-purple-500 shrink-0 mt-0.5">•</span>{breakdown.assessment.explanation}</p>
-        {(breakdown.skills.missing?.length ?? 0) > 0 && (
+        <p className="flex items-start gap-1.5"><span className="text-blue-500 shrink-0 mt-0.5">•</span>{breakdown.skills?.explanation ?? ''}</p>
+        <p className="flex items-start gap-1.5"><span className="text-emerald-500 shrink-0 mt-0.5">•</span>{breakdown.budget?.explanation ?? ''}</p>
+        <p className="flex items-start gap-1.5"><span className="text-purple-500 shrink-0 mt-0.5">•</span>{breakdown.assessment?.explanation ?? ''}</p>
+        {(breakdown.skills?.missing?.length ?? 0) > 0 && (
           <p className="flex items-start gap-1.5 text-amber-600 font-medium">
             <AlertCircle size={11} className="shrink-0 mt-0.5" />
             Kỹ năng còn thiếu: {breakdown.skills.missing.join(', ')}
