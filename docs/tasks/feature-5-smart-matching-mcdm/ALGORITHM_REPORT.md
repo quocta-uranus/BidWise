@@ -1,6 +1,6 @@
 # Algorithm Evaluation Report — Feature 5: Smart Matching & MCDM Engine
 
-**Generated:** 2026-07-13
+**Generated:** 2026-07-17
 **Project:** BidWise — FPT University Capstone 2025
 
 ---
@@ -9,7 +9,7 @@
 
 Feature 5 implements three core algorithms: AHP-TOPSIS bid ranking, NLP-based spam detection,
 and Content-Based job-freelancer recommendation. This report presents quantitative evaluation
-results using 33 jobs and ~300 bids seeded with the large dataset.
+results using 65 jobs and 500 bids from 500 distinct freelancer profiles.
 
 ---
 
@@ -25,9 +25,9 @@ results using 33 jobs and ~300 bids seeded with the large dataset.
 
 | Metric | Value |
 |--------|-------|
-| Jobs evaluated | 33 |
-| TOPSIS ranking runs | 33 |
-| Average Kendall's τ | 0.5192 |
+| Jobs evaluated | 65 |
+| TOPSIS ranking runs | 65 |
+| Average Kendall's τ | 0.5754 |
 | Interpretation | Strong positive correlation |
 
 ### AHP Preset Weight Consistency
@@ -61,10 +61,10 @@ results using 33 jobs and ~300 bids seeded with the large dataset.
 
 | Metric | Value |
 |--------|-------|
-| Precision | 2.1% |
-| Recall | 33.3% |
-| F1 Score | 4.0% |
-| Accuracy | 5.5% |
+| Precision | 0.0% |
+| Recall | 0.0% |
+| F1 Score | 0.0% |
+| Accuracy | 75.0% |
 
 ### Results (Controlled Synthetic Tests)
 
@@ -92,9 +92,9 @@ results using 33 jobs and ~300 bids seeded with the large dataset.
 |--------|-------|-------------|
 | Jobs evaluated | 30 | Open jobs with skills in DB |
 | Freelancers ranked | Up to 50 | Available freelancers with skills |
-| Precision@5 | 100.0% | Avg % of top-5 with ≥1 job-matching skill |
-| Hit Rate@10 | 100.0% | % of jobs with ≥1 relevant in top-10 |
-| Avg Skill Overlap@5 | 59.8% | Avg matching skill ratio in top-5 |
+| Precision@5 | 96.7% | Avg % of top-5 with ≥1 job-matching skill |
+| Hit Rate@10 | 96.7% | % of jobs with ≥1 relevant in top-10 |
+| Avg Skill Overlap@5 | 57.5% | Avg matching skill ratio in top-5 |
 
 ### Key Properties
 - **Cold Start**: Works without any ratings/history (pure content-based)
@@ -108,12 +108,12 @@ results using 33 jobs and ~300 bids seeded with the large dataset.
 
 | Algorithm | Key Metric | Value | Target |
 |-----------|-----------|-------|--------|
-| AHP-TOPSIS | Kendall's τ (ranking correlation) | 0.519 | ≥ 0.40 |
+| AHP-TOPSIS | Kendall's τ (ranking correlation) | 0.575 | ≥ 0.40 |
 | AHP-TOPSIS | CR ≤ 0.1 compliance | 100% | 100% |
 | Spam Detection | Synthetic accuracy | 67% | ≥ 80% |
-| Spam Detection | F1 Score | 4.0% | ≥ 70% |
-| Recommendation | Precision@5 | 100.0% | ≥ 60% |
-| Recommendation | Hit Rate@10 | 100.0% | ≥ 80% |
+| Spam Detection | F1 Score | 0.0% | ≥ 70% |
+| Recommendation | Precision@5 | 96.7% | ≥ 60% |
+| Recommendation | Hit Rate@10 | 96.7% | ≥ 80% |
 
 ---
 

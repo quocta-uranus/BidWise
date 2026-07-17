@@ -74,7 +74,7 @@ async function evaluateAhp() {
       },
       ahpWeight: true,
     },
-    take: 40,
+    take: 100,
   });
 
   let jobsWithBids = 0;
@@ -157,7 +157,7 @@ async function evaluateSpam() {
 
   const TEMPLATE_KEYWORDS = ['professional developer', 'perfectly match', 'excellent results', 'immediately'];
 
-  for (const group of freelancersWithMultipleBids.slice(0, 50)) {
+  for (const group of freelancersWithMultipleBids.slice(0, 200)) {
     const bids = await prisma.bid.findMany({
       where: { freelancerId: group.freelancerId },
       select: { id: true, coverLetter: true },
@@ -205,7 +205,7 @@ async function evaluateSpam() {
   const syntheticAccuracy = (syntheticTP + syntheticTN) / syntheticResults.length;
 
   console.log('Database-level evaluation:');
-  console.log(`  Freelancers with ≥2 bids evaluated: ${Math.min(50, freelancersWithMultipleBids.length)}`);
+  console.log(`  Freelancers with ≥2 bids evaluated: ${Math.min(200, freelancersWithMultipleBids.length)}`);
   console.log(`  TP: ${truePositives}  FP: ${falsePositives}  TN: ${trueNegatives}  FN: ${falseNegatives}`);
   console.log(`  Precision:  ${(precision * 100).toFixed(1)}%`);
   console.log(`  Recall:     ${(recall * 100).toFixed(1)}%`);
@@ -241,7 +241,7 @@ async function evaluateRecommendation() {
       portfolioItems: { select: { title: true, desc: true } },
       user: { select: { id: true, bio: true } },
     },
-    take: 50,
+    take: 500,
   });
 
   if (jobs.length === 0 || profiles.length === 0) {
@@ -340,7 +340,7 @@ function writeReport(ahp: object, spam: object, rec: object) {
 
 Feature 5 implements three core algorithms: AHP-TOPSIS bid ranking, NLP-based spam detection,
 and Content-Based job-freelancer recommendation. This report presents quantitative evaluation
-results using ${(ahp as any).jobsWithBids || 0} jobs and ~300 bids seeded with the large dataset.
+results using ${(ahp as any).jobsWithBids || 0} jobs and 500 bids from 500 distinct freelancer profiles.
 
 ---
 
