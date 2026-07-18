@@ -160,6 +160,7 @@ export const contractsApi = {
       qualityRating: number;
       commRating: number;
       speedRating: number;
+      fourthRating: number;
       comment?: string;
       anonymous?: boolean;
     },

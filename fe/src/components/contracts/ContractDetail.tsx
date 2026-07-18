@@ -50,6 +50,7 @@ export default function ContractDetail({
   const [qualityRating, setQualityRating] = useState(5);
   const [commRating, setCommRating] = useState(5);
   const [speedRating, setSpeedRating] = useState(5);
+  const [scopeRating, setScopeRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [anonymous, setAnonymous] = useState(false);
 
@@ -61,6 +62,7 @@ export default function ContractDetail({
         qualityRating,
         commRating,
         speedRating,
+        fourthRating: scopeRating,
         comment: reviewComment,
         anonymous,
       });
@@ -501,6 +503,23 @@ export default function ContractDetail({
                         className="transition-all duration-150 transform hover:scale-110"
                       >
                         <Star className={`w-5 h-5 ${s <= speedRating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Scope compliance */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">Tuân thủ phạm vi công việc</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setScopeRating(s)}
+                        className="transition-all duration-150 transform hover:scale-110"
+                      >
+                        <Star className={`w-5 h-5 ${s <= scopeRating ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
                       </button>
                     ))}
                   </div>
