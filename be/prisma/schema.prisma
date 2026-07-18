@@ -524,14 +524,22 @@ model Review {
   qualityRating Float
   commRating    Float
   speedRating   Float
+  fourthRating  Float?
   comment       String   @default("")
   anonymous     Boolean  @default(false)
+  publishedAt   DateTime?
+  isHidden      Boolean  @default(false)
+  hiddenReason  String?
+  response      String?
+  respondedAt   DateTime?
   createdAt     DateTime @default(now())
 
   contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   reviewer      User     @relation("ReviewerRelation", fields: [reviewerId], references: [id])
   reviewee      User     @relation("RevieweeRelation", fields: [revieweeId], references: [id])
 
+  @@unique([contractId, reviewerId])
+  @@index([revieweeId, publishedAt, isHidden])
   @@map("reviews")
 }
 // ─── FREELANCER TABLES ───────────────────────────────────────────────────────
