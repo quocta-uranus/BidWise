@@ -27,6 +27,7 @@ import {
   CreateCategoryDto,
   CreateSkillDto,
   HideJobDto,
+  ModerateReviewDto,
   MergeSkillsDto,
   ResolveReportDto,
   UpdateAssessmentQuestionDto,
@@ -173,6 +174,24 @@ export class AdminController {
   @Roles(RoleType.ADMIN)
   deleteJob(@Param('jobId') jobId: string) {
     return this.adminService.deleteJob(jobId);
+  }
+
+  @Get('reviews')
+  @Roles(RoleType.ADMIN, RoleType.MODERATOR)
+  listReviews(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.adminService.listReviews(
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+    );
+  }
+
+  @Patch('reviews/:reviewId/moderation')
+  @Roles(RoleType.ADMIN, RoleType.MODERATOR)
+  moderateReview(
+    @Param('reviewId') reviewId: string,
+    @Body() dto: ModerateReviewDto,
+  ) {
+    return this.adminService.moderateReview(reviewId, dto);
   }
 
   // ─── REPORTS & DISPUTES ────────────────────────────────────────────────────
