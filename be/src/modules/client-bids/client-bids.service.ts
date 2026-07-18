@@ -282,7 +282,7 @@ export class ClientBidsService {
     if (!bid) throw new NotFoundException('BID_NOT_FOUND');
 
     const reviews = await this.prisma.review.findMany({
-      where: { revieweeId: bid.freelancerId },
+      where: { revieweeId: bid.freelancerId, publishedAt: { not: null }, isHidden: false },
       include: {
         reviewer: { select: { fullName: true } },
       },
@@ -294,7 +294,7 @@ export class ClientBidsService {
       reviews: reviews.map((r) => ({
         id: r.id,
         reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
-        rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+        rating: (r.qualityRating + r.commRating + r.speedRating + (r.fourthRating ?? r.speedRating)) / 4,
         comment: r.comment,
         date: r.createdAt.toISOString().split('T')[0],
       })),

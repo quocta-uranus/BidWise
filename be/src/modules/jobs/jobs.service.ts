@@ -122,7 +122,7 @@ export class JobsService {
 
     const [reviews, totalJobsPosted, contracts] = await Promise.all([
       this.prisma.review.findMany({
-        where: { revieweeId: job.clientId },
+        where: { revieweeId: job.clientId, publishedAt: { not: null }, isHidden: false },
         include: {
           reviewer: { select: { fullName: true } },
         },
@@ -262,7 +262,7 @@ export class JobsService {
     return Promise.all(
       bids.map(async (bid) => {
         const reviews = await this.prisma.review.findMany({
-          where: { revieweeId: bid.freelancerId },
+          where: { revieweeId: bid.freelancerId, publishedAt: { not: null }, isHidden: false },
         });
 
         const totalReviews = reviews.length;
@@ -292,7 +292,7 @@ export class JobsService {
 
   private async calculateFreelancerReputation(freelancerId: string, profileSkills: string[]) {
     const reviews = await this.prisma.review.findMany({
-      where: { revieweeId: freelancerId },
+      where: { revieweeId: freelancerId, publishedAt: { not: null }, isHidden: false },
       include: {
         contract: {
           include: {
@@ -742,7 +742,7 @@ export class JobsService {
     
     const [reviews, jobCounts, contracts] = await Promise.all([
       this.prisma.review.findMany({
-        where: { revieweeId: { in: clientIds } },
+        where: { revieweeId: { in: clientIds }, publishedAt: { not: null }, isHidden: false },
         select: {
           revieweeId: true,
           qualityRating: true,
