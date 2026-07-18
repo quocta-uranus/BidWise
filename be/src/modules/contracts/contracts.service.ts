@@ -294,6 +294,10 @@ export class ContractsService {
   async reviewMilestone(contractId: string, milestoneId: string, clientId: string, dto: ReviewMilestoneDto) {
     const { contract, milestone } = await this.getMilestoneForClient(contractId, milestoneId, clientId);
 
+    if (contract.status === 'DISPUTED') {
+      throw new BadRequestException('ESCROW_FROZEN_BY_DISPUTE');
+    }
+
     if (milestone.status !== 'SUBMITTED') {
       throw new BadRequestException('MILESTONE_NOT_SUBMITTED');
     }
@@ -602,6 +606,9 @@ export class ContractsService {
     }
     if (['COMPLETED', 'CANCELLED'].includes(contract.status)) {
       throw new BadRequestException('CONTRACT_ALREADY_FINISHED');
+    }
+    if (contract.status === 'DISPUTED') {
+      throw new BadRequestException('DISPUTE_MUST_BE_RESOLVED_BY_ADMIN');
     }
 
     return this.prisma.$transaction(async (tx) => {

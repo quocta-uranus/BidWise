@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAdminReports, useAdminDisputes, useResolveReport } from '@/hooks/useAdmin';
+import { useAdminReports, useAdminDisputes, useResolveDispute, useResolveReport } from '@/hooks/useAdmin';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -16,10 +16,12 @@ export default function ReportManagement() {
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
   const [resolution, setResolution] = useState('');
   const [action, setAction] = useState('NONE');
+  const [selectedDispute, setSelectedDispute] = useState<string | null>(null);
 
   const { data: reports, isLoading } = useAdminReports({ page: 1, limit: 20 });
   const { data: disputes, isLoading: disputesLoading } = useAdminDisputes({ page: 1, limit: 20 });
   const resolveReport = useResolveReport();
+  const resolveDispute = useResolveDispute();
 
   const handleResolve = (status: string) => {
     if (!selectedReport) return;
@@ -106,12 +108,15 @@ export default function ReportManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(disputes?.contracts as Array<{ id: string; title: string; totalAmount: number; client: { fullName: string }; freelancer: { fullName: string } }> ?? []).map((c) => (
+                {(disputes?.contracts as Array<{ id: string; title: string; totalAmount: number; client: { fullName: string }; freelancer: { fullName: string }; dispute?: { id: string } }> ?? []).map((c) => (
                   <tr key={c.id}>
                     <td className="px-4 py-3 font-medium">{c.title}</td>
                     <td className="px-4 py-3 text-slate-600">{c.client.fullName}</td>
                     <td className="px-4 py-3 text-slate-600">{c.freelancer.fullName}</td>
-                    <td className="px-4 py-3 text-slate-600">${c.totalAmount}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      ${c.totalAmount}
+                      {c.dispute && <button onClick={() => setSelectedDispute(c.dispute!.id)} className="ml-3 text-blue-600 text-xs hover:underline">Xử lý</button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -143,6 +148,23 @@ export default function ReportManagement() {
               <button onClick={() => handleResolve('DISMISSED')} className="px-4 py-2 text-sm bg-slate-600 text-white rounded-xl">Bỏ qua</button>
               <button onClick={() => handleResolve('RESOLVED')} disabled={resolveReport.isPending}
                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl disabled:opacity-50">Xác nhận</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedDispute && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl space-y-3">
+            <h3 className="font-semibold text-slate-900">Quyết định tranh chấp</h3>
+            <textarea value={resolution} onChange={(e) => setResolution(e.target.value)} rows={3}
+              placeholder="Kết luận của admin..." className="w-full border border-slate-200 rounded-xl p-3 text-sm" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setSelectedDispute(null)} className="px-4 py-2 bg-slate-100 rounded-xl text-sm">Hủy</button>
+              <button onClick={() => resolveDispute.mutate({ disputeId: selectedDispute, decision: 'REFUND', resolution }, { onSuccess: () => setSelectedDispute(null) })}
+                disabled={!resolution.trim()} className="px-4 py-2 bg-rose-600 text-white rounded-xl text-sm disabled:opacity-50">Refund client</button>
+              <button onClick={() => resolveDispute.mutate({ disputeId: selectedDispute, decision: 'RELEASE_FUNDS', resolution }, { onSuccess: () => setSelectedDispute(null) })}
+                disabled={!resolution.trim()} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm disabled:opacity-50">Release freelancer</button>
             </div>
           </div>
         </div>

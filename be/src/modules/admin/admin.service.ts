@@ -27,6 +27,7 @@ import type {
   UpdateCategoryDto,
   UpdateSkillDto,
 } from './dto/admin.dto';
+import type { ResolveDisputeDto } from '../reports/dto/reports.dto';
 
 @Injectable()
 export class AdminService {
@@ -448,6 +449,88 @@ export class AdminService {
     });
   }
 
+  async resolveDispute(disputeId: string, dto: ResolveDisputeDto, adminId: string) {
+    const dispute = await this.prisma.dispute.findUnique({
+      where: { id: disputeId },
+      include: { contract: { include: { milestones: true } } },
+    });
+    if (!dispute) throw new NotFoundException('DISPUTE_NOT_FOUND');
+    if (dispute.status === 'RESOLVED') throw new BadRequestException('DISPUTE_ALREADY_RESOLVED');
+
+    const remainingAmount = dispute.contract.milestones
+      .filter((milestone) => milestone.status !== 'APPROVED')
+      .reduce((sum, milestone) => sum + milestone.amount, 0);
+
+    return this.prisma.$transaction(async (tx) => {
+      const clientWallet = await tx.wallet.findUnique({
+        where: { userId: dispute.contract.clientId },
+      });
+      if (!clientWallet || clientWallet.escrow < remainingAmount) {
+        throw new BadRequestException('ESCROW_BALANCE_INCONSISTENT');
+      }
+
+      const recipientId =
+        dto.decision === 'REFUND'
+          ? dispute.contract.clientId
+          : dispute.contract.freelancerId;
+      const recipientWallet = await tx.wallet.upsert({
+        where: { userId: recipientId },
+        update: {},
+        create: { userId: recipientId, balance: 0, escrow: 0, totalEarned: 0 },
+      });
+
+      await tx.wallet.update({
+        where: { id: clientWallet.id },
+        data: { escrow: { decrement: remainingAmount } },
+      });
+      await tx.wallet.update({
+        where: { id: recipientWallet.id },
+        data: {
+          balance: { increment: remainingAmount },
+          ...(dto.decision === 'RELEASE_FUNDS'
+            ? { totalEarned: { increment: remainingAmount } }
+            : {}),
+        },
+      });
+      await tx.transaction.create({
+        data: {
+          walletId: recipientWallet.id,
+          type: dto.decision === 'REFUND' ? 'REFUND' : 'EARNED',
+          amount: remainingAmount,
+          description: `Dispute ${dto.decision}: ${dispute.contract.title}`,
+          status: 'SUCCESS',
+        },
+      });
+      await tx.contract.update({
+        where: { id: dispute.contractId },
+        data:
+          dto.decision === 'REFUND'
+            ? { status: 'CANCELLED', cancelledAt: new Date(), cancelReason: dto.resolution }
+            : { status: 'COMPLETED', completedAt: new Date() },
+      });
+      await tx.report.updateMany({
+        where: { targetType: 'CONTRACT', targetId: dispute.contractId, status: { in: ['PENDING', 'IN_REVIEW'] } },
+        data: {
+          status: 'RESOLVED',
+          resolution: dto.resolution,
+          action: dto.decision === 'REFUND' ? 'REFUND' : 'RELEASE_FUNDS',
+          resolvedBy: adminId,
+          resolvedAt: new Date(),
+        },
+      });
+      return tx.dispute.update({
+        where: { id: disputeId },
+        data: {
+          status: 'RESOLVED',
+          decision: dto.decision,
+          resolution: dto.resolution,
+          resolvedBy: adminId,
+          resolvedAt: new Date(),
+        },
+      });
+    });
+  }
+
   private async releaseContractFunds(contractId: string, mode: 'REFUND' | 'RELEASE', adminId: string) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
@@ -744,6 +827,14 @@ export class AdminService {
           client: { select: { id: true, fullName: true, email: true } },
           freelancer: { select: { id: true, fullName: true, email: true } },
           job: { select: { id: true, title: true } },
+          dispute: {
+            include: {
+              evidence: {
+                include: { submitter: { select: { id: true, fullName: true } } },
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+          },
         },
         orderBy: { updatedAt: 'desc' },
       }),
