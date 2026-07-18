@@ -85,6 +85,15 @@ export class HideJobDto {
   reason: string;
 }
 
+export class ModerateReviewDto {
+  @IsBoolean()
+  isHidden: boolean;
+
+  @IsOptional()
+  @IsString()
+  hiddenReason?: string;
+}
+
 export class ResolveReportDto {
   @IsEnum(ReportStatus)
   status: ReportStatus;
