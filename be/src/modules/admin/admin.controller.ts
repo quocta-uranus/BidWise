@@ -34,6 +34,7 @@ import {
   UpdateSkillDto,
   UpdateSystemConfigDto,
 } from './dto/admin.dto';
+import { ResolveDisputeDto } from '../reports/dto/reports.dto';
 
 class AssignRoleDto {
   @IsEnum(RoleType)
@@ -218,6 +219,17 @@ export class AdminController {
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 20,
     );
+  }
+
+  @Post('disputes/:disputeId/resolve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleType.ADMIN, RoleType.MODERATOR)
+  resolveDispute(
+    @Param('disputeId') disputeId: string,
+    @Body() dto: ResolveDisputeDto,
+    @CurrentUser() admin: AccessTokenPayload,
+  ) {
+    return this.adminService.resolveDispute(disputeId, dto, admin.sub);
   }
 
   // ─── CATEGORIES & SKILLS ───────────────────────────────────────────────────
