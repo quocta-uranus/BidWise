@@ -115,7 +115,7 @@ export class FreelancerService {
     const reputationMatrix = await this.calculateSkillReputation(userId, profile.skills);
 
     const reviews = await this.prisma.review.findMany({
-      where: { revieweeId: userId },
+      where: { revieweeId: userId, publishedAt: { not: null }, isHidden: false },
       include: {
         reviewer: { select: { fullName: true } },
       },
@@ -128,7 +128,7 @@ export class FreelancerService {
       reviews: reviews.map((r) => ({
         id: r.id,
         reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
-        rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+        rating: (r.qualityRating + r.commRating + r.speedRating + (r.fourthRating ?? r.speedRating)) / 4,
         comment: r.comment,
         date: r.createdAt.toISOString().split('T')[0],
       })),
@@ -375,7 +375,7 @@ export class FreelancerService {
 
   async calculateSkillReputation(userId: string, profileSkills: string[]) {
     const reviews = await this.prisma.review.findMany({
-      where: { revieweeId: userId },
+      where: { revieweeId: userId, publishedAt: { not: null }, isHidden: false },
       include: {
         contract: {
           include: {

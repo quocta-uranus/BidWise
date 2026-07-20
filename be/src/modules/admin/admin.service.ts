@@ -20,6 +20,7 @@ import type {
   CreateCategoryDto,
   CreateSkillDto,
   HideJobDto,
+  ModerateReviewDto,
   MergeSkillsDto,
   ResolveReportDto,
   UpdateAssessmentQuestionDto,
@@ -327,6 +328,39 @@ export class AdminService {
     return this.prisma.job.update({
       where: { id: jobId },
       data: { deletedAt: new Date(), status: 'CLOSED', isHidden: true },
+    });
+  }
+
+  async listReviews(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        skip,
+        take: limit,
+        include: {
+          reviewer: { select: { id: true, fullName: true, email: true } },
+          reviewee: { select: { id: true, fullName: true, email: true } },
+          contract: { select: { id: true, title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.review.count(),
+    ]);
+    return { reviews, total, page, limit };
+  }
+
+  async moderateReview(reviewId: string, dto: ModerateReviewDto) {
+    const review = await this.prisma.review.findUnique({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('REVIEW_NOT_FOUND');
+    if (dto.isHidden && !dto.hiddenReason?.trim()) {
+      throw new BadRequestException('HIDDEN_REASON_REQUIRED');
+    }
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        isHidden: dto.isHidden,
+        hiddenReason: dto.isHidden ? dto.hiddenReason?.trim() : null,
+      },
     });
   }
 

@@ -12,7 +12,7 @@ import {
   ReviewMilestoneDto,
   SubmitMilestoneDto,
 } from './dto/contracts.dto';
-import { ReviewFreelancerDto } from './dto/review-freelancer.dto';
+import { ReviewClientDto, ReviewFreelancerDto, ReviewResponseDto } from './dto/review-freelancer.dto';
 import { join, extname } from 'path';
 import { existsSync, mkdirSync, writeFileSync, readdirSync, unlinkSync, createReadStream } from 'fs';
 import { randomUUID } from 'crypto';
@@ -422,18 +422,6 @@ export class ContractsService {
 
         return m;
       });
-      // Fire-and-forget: update multi-dimensional reputation after milestone approved
-      if (dto.rating) {
-        this.prisma.job
-          .findUnique({ where: { id: contract.jobId }, select: { skills: true } })
-          .then((job) => {
-            if (job) {
-              this.reputationService.updateAfterReview(contract.freelancerId, job.skills, dto.rating!);
-            }
-          })
-          .catch(() => void 0);
-      }
-
       return updated;
     }
 
@@ -460,6 +448,7 @@ export class ContractsService {
   async reviewFreelancer(clientId: string, contractId: string, dto: ReviewFreelancerDto) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
+      include: { job: { select: { skills: true } } },
     });
 
     if (!contract || contract.clientId !== clientId) {
@@ -469,12 +458,13 @@ export class ContractsService {
     if (contract.status !== 'COMPLETED') {
       throw new BadRequestException('Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành.');
     }
+    this.assertReviewWindowOpen(contract.completedAt);
 
     if (contract.freelancerReviewed) {
       throw new BadRequestException('Bạn đã đánh giá freelancer cho hợp đồng này rồi.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Create Review
       const review = await tx.review.create({
         data: {
@@ -484,6 +474,7 @@ export class ContractsService {
           qualityRating: dto.qualityRating,
           commRating: dto.commRating,
           speedRating: dto.speedRating,
+          fourthRating: dto.fourthRating,
           comment: dto.comment || '',
           anonymous: dto.anonymous || false,
         },
@@ -495,12 +486,31 @@ export class ContractsService {
         data: { freelancerReviewed: true },
       });
 
+      const otherReview = await tx.review.findFirst({
+        where: { contractId, reviewerId: contract.freelancerId },
+      });
+      if (otherReview) {
+        await tx.review.updateMany({
+          where: { contractId, publishedAt: null },
+          data: { publishedAt: new Date() },
+        });
+      }
+
       return { success: true, reviewId: review.id };
     });
+
+    const score =
+      (dto.qualityRating + dto.commRating + dto.speedRating + dto.fourthRating) / 4;
+    await this.reputationService.updateAfterReview(
+      contract.freelancerId,
+      contract.job.skills,
+      score,
+    );
+    return result;
   }
 
   // Freelancer reviews Client
-  async reviewClient(freelancerId: string, contractId: string, dto: ReviewFreelancerDto) {
+  async reviewClient(freelancerId: string, contractId: string, dto: ReviewClientDto) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
     });
@@ -512,6 +522,7 @@ export class ContractsService {
     if (contract.status !== 'COMPLETED') {
       throw new BadRequestException('Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành.');
     }
+    this.assertReviewWindowOpen(contract.completedAt);
 
     if (contract.clientReviewed) {
       throw new BadRequestException('Bạn đã đánh giá client cho hợp đồng này rồi.');
@@ -538,8 +549,45 @@ export class ContractsService {
         data: { clientReviewed: true },
       });
 
+      const otherReview = await tx.review.findFirst({
+        where: { contractId, reviewerId: contract.clientId },
+      });
+      if (otherReview) {
+        await tx.review.updateMany({
+          where: { contractId, publishedAt: null },
+          data: { publishedAt: new Date() },
+        });
+      }
+
       return { success: true, reviewId: review.id };
     });
+  }
+
+  async respondToReview(freelancerId: string, reviewId: string, dto: ReviewResponseDto) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: { contract: { select: { freelancerId: true, clientId: true } } },
+    });
+    if (!review) throw new NotFoundException('REVIEW_NOT_FOUND');
+    if (review.contract.freelancerId !== freelancerId || review.revieweeId !== freelancerId) {
+      throw new ForbiddenException('NOT_REVIEW_RECIPIENT');
+    }
+    if (review.reviewerId !== review.contract.clientId) {
+      throw new BadRequestException('ONLY_CLIENT_REVIEW_CAN_BE_RESPONDED');
+    }
+    if (review.response) throw new BadRequestException('REVIEW_ALREADY_RESPONDED');
+
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { response: dto.response.trim(), respondedAt: new Date() },
+    });
+  }
+
+  private assertReviewWindowOpen(completedAt: Date | null) {
+    if (!completedAt) throw new BadRequestException('CONTRACT_COMPLETION_DATE_MISSING');
+    const deadline = new Date(completedAt);
+    deadline.setDate(deadline.getDate() + 7);
+    if (new Date() > deadline) throw new BadRequestException('REVIEW_WINDOW_CLOSED');
   }
 
   // CL-22: Cancel contract

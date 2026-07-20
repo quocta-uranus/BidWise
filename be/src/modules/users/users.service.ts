@@ -16,6 +16,7 @@ export class UsersService {
       include: {
         userRoles: { include: { role: true } },
         reviewsReceived: {
+          where: { publishedAt: { not: null }, isHidden: false },
           include: { reviewer: { select: { fullName: true } } },
           orderBy: { createdAt: 'desc' },
         },
@@ -29,7 +30,7 @@ export class UsersService {
       reviews: user.reviewsReceived.map((r) => ({
         id: r.id,
         reviewerName: r.anonymous ? 'Ẩn danh' : r.reviewer.fullName,
-        rating: (r.qualityRating + r.commRating + r.speedRating) / 3,
+        rating: (r.qualityRating + r.commRating + r.speedRating + (r.fourthRating ?? r.speedRating)) / 4,
         comment: r.comment,
         date: r.createdAt.toISOString().split('T')[0],
       })),

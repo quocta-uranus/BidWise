@@ -21,7 +21,7 @@ import {
   ReviewMilestoneDto,
   SubmitMilestoneDto,
 } from './dto/contracts.dto';
-import { ReviewFreelancerDto } from './dto/review-freelancer.dto';
+import { ReviewClientDto, ReviewFreelancerDto, ReviewResponseDto } from './dto/review-freelancer.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -159,9 +159,19 @@ export class FreelancerContractsController {
   reviewClient(
     @CurrentUser() user: AccessTokenPayload,
     @Param('id') id: string,
-    @Body() dto: ReviewFreelancerDto,
+    @Body() dto: ReviewClientDto,
   ) {
     return this.service.reviewClient(user.sub, id, dto);
+  }
+
+  @Post('reviews/:reviewId/response')
+  @Roles(RoleType.FREELANCER)
+  respondToReview(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('reviewId') reviewId: string,
+    @Body() dto: ReviewResponseDto,
+  ) {
+    return this.service.respondToReview(user.sub, reviewId, dto);
   }
 }
 
