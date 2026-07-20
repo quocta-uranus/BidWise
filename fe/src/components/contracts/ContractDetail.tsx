@@ -9,6 +9,7 @@ import { createConversation } from "@/lib/api/chat.api";
 import MilestoneTimeline from "./MilestoneTimeline";
 import { useFreelancer } from "@/lib/hooks/useFreelancer";
 import { toast } from "sonner";
+import { reportsApi } from "@/lib/api/reports.api";
 
 interface Props {
   contract: Contract;
@@ -37,6 +38,9 @@ export default function ContractDetail({
   const [openingChat, setOpeningChat] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [showDispute, setShowDispute] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [evidenceUrls, setEvidenceUrls] = useState("");
   const [feedbackModal, setFeedbackModal] = useState<{
     milestoneId: string;
     action: "approve" | "revision" | "reject";
@@ -170,6 +174,30 @@ export default function ContractDetail({
     }
   };
 
+  const executeDispute = async () => {
+    if (disputeReason.trim().length < 5) {
+      toast.error("Vui lòng mô tả tranh chấp rõ hơn");
+      return;
+    }
+    setActionLoading("dispute");
+    try {
+      await reportsApi.openDispute({
+        contractId: contract.id,
+        reason: disputeReason.trim(),
+        evidenceUrls: evidenceUrls.split(",").map((url) => url.trim()).filter(Boolean),
+      });
+      toast.success("Đã mở tranh chấp. Escrow đang được tạm khóa.");
+      setShowDispute(false);
+      setDisputeReason("");
+      setEvidenceUrls("");
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? "Không thể mở tranh chấp");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const openChat = async () => {
     setOpeningChat(true);
     try {
@@ -275,6 +303,12 @@ export default function ContractDetail({
           {/* Cancel button */}
           {["ACTIVE", "PAUSED"].includes(contract.status) && (
             <div className="pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setShowDispute(true)}
+                className="inline-flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-800 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors mr-2"
+              >
+                <AlertOctagon size={12} /> Mở tranh chấp
+              </button>
               <button
                 onClick={() => setShowCancel(true)}
                 className="inline-flex items-center gap-1.5 text-xs text-rose-500 hover:text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg hover:bg-rose-50 transition-colors"
@@ -397,6 +431,38 @@ export default function ContractDetail({
       )}
 
       {/* Cancel modal */}
+      {showDispute && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl space-y-4">
+            <div>
+              <h3 className="font-bold text-slate-900">Mở tranh chấp hợp đồng</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Escrow sẽ bị khóa. Hai bên có thể nộp bằng chứng trước khi admin ra quyết định trong 5 ngày.
+              </p>
+            </div>
+            <textarea
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              rows={4}
+              placeholder="Mô tả vấn đề: scam, chất lượng hoặc thanh toán..."
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm"
+            />
+            <input
+              value={evidenceUrls}
+              onChange={(e) => setEvidenceUrls(e.target.value)}
+              placeholder="Link bằng chứng, phân cách bằng dấu phẩy"
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDispute(false)} className="px-4 py-2 rounded-xl bg-slate-100 text-sm">Hủy</button>
+              <button onClick={executeDispute} disabled={actionLoading === "dispute"} className="px-4 py-2 rounded-xl bg-amber-600 text-white text-sm disabled:opacity-50">
+                {actionLoading === "dispute" ? "Đang gửi..." : "Xác nhận tranh chấp"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCancel && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">

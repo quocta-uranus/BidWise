@@ -200,6 +200,8 @@ export const adminApi = {
     apiClient.post(`/admin/reports/${reportId}/resolve`, data),
   listDisputes: (params?: { page?: number; limit?: number }) =>
     apiClient.get<{ data: PaginatedResponse<unknown> }>('/admin/disputes', { params }),
+  resolveDispute: (disputeId: string, data: { decision: 'REFUND' | 'RELEASE_FUNDS'; resolution: string }) =>
+    apiClient.post(`/admin/disputes/${disputeId}/resolve`, data),
 
   // Categories & Skills
   listCategories: () => apiClient.get<{ data: AdminCategory[] }>('/admin/categories'),

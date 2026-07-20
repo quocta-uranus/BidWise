@@ -135,6 +135,24 @@ enum ReportAction {
   WARNING
 }
 
+enum ReportCategory {
+  SCAM
+  QUALITY_DISPUTE
+  PAYMENT
+  INAPPROPRIATE_CONTENT
+}
+
+enum DisputeStatus {
+  EVIDENCE_COLLECTION
+  UNDER_REVIEW
+  RESOLVED
+}
+
+enum DisputeDecision {
+  REFUND
+  RELEASE_FUNDS
+}
+
 // ─── CORE TABLES ─────────────────────────────────────────────────────────────
 
 model User {
@@ -155,6 +173,8 @@ model User {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   deletedAt        DateTime?
+  autoFlaggedAt    DateTime?
+  autoFlagReason   String?
 
   userRoles           UserRole[]
   otpVerifications    OtpVerification[]
@@ -173,6 +193,8 @@ model User {
   clientContracts     Contract[]         @relation("ClientContracts")
   freelancerContracts Contract[]         @relation("FreelancerContracts")
   reports             Report[]           @relation("ReporterReports")
+  disputesOpened      Dispute[]           @relation("DisputeOpenedBy")
+  disputeEvidence     DisputeEvidence[]
   skillClusterReputations SkillClusterReputation[]
   clientConversations     Conversation[] @relation("ClientConversations")
   freelancerConversations Conversation[] @relation("FreelancerConversations")
@@ -693,6 +715,7 @@ model Contract {
   milestones   Milestone[]
   statusLogs   ContractStatusLog[]
   reviews      Review[]
+  dispute      Dispute?
 
   @@index([clientId])
   @@index([freelancerId])
@@ -772,6 +795,8 @@ model Report {
   targetId   String
   reason     String
   evidence   String?
+  category   ReportCategory @default(INAPPROPRIATE_CONTENT)
+  evidenceUrls String[] @default([])
   status     ReportStatus  @default(PENDING)
   resolution String?
   action     ReportAction?
@@ -785,6 +810,43 @@ model Report {
   @@index([status])
   @@index([targetType, targetId])
   @@map("reports")
+}
+
+model Dispute {
+  id             String          @id @default(cuid())
+  contractId     String          @unique
+  openedById     String
+  reason         String
+  status         DisputeStatus   @default(EVIDENCE_COLLECTION)
+  reviewDeadline DateTime
+  decision       DisputeDecision?
+  resolution     String?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  contract Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  openedBy User              @relation("DisputeOpenedBy", fields: [openedById], references: [id])
+  evidence DisputeEvidence[]
+
+  @@index([status, reviewDeadline])
+  @@map("disputes")
+}
+
+model DisputeEvidence {
+  id          String   @id @default(cuid())
+  disputeId   String
+  submittedBy String
+  description String
+  fileUrls    String[]
+  createdAt   DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  submitter User   @relation(fields: [submittedBy], references: [id])
+
+  @@index([disputeId, submittedBy])
+  @@map("dispute_evidence")
 }
 
 model SystemConfig {

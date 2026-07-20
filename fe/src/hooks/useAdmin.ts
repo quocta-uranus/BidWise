@@ -71,6 +71,16 @@ export function useAdminDisputes(params?: { page?: number; limit?: number }) {
   });
 }
 
+export function useResolveDispute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ disputeId, ...data }: { disputeId: string; decision: 'REFUND' | 'RELEASE_FUNDS'; resolution: string }) =>
+      adminApi.resolveDispute(disputeId, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Đã giải quyết tranh chấp'); },
+    onError: () => toast.error('Không thể giải quyết tranh chấp'),
+  });
+}
+
 export function useAdminCategories() {
   return useQuery({
     queryKey: ['admin', 'categories'],
