@@ -265,6 +265,7 @@ export class ClientBidsService {
           select: {
             id: true,
             fullName: true,
+            email: true,
             avatarUrl: true,
             bio: true,
             createdAt: true,
