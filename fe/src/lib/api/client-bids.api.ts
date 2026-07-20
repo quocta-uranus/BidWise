@@ -45,6 +45,7 @@ export interface RankedBidsResponse {
 export interface FreelancerFullProfile {
   id: string;
   fullName: string;
+  email: string;
   avatarUrl: string | null;
   bio: string | null;
   createdAt: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Star, Briefcase, Award, Globe } from 'lucide-react';
+import { X, Star, Briefcase, Award, Globe, Mail } from 'lucide-react';
 import { clientBidsApi, FreelancerFullProfile } from '@/lib/api/client-bids.api';
 
 interface Props {
@@ -54,6 +54,10 @@ export default function FreelancerProfileModal({ jobId, bidId, onClose }: Props)
                 )}
                 <p className="text-xs text-slate-400 mt-0.5">
                   Tham gia: {new Date(profile.createdAt).toLocaleDateString('vi-VN')}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                  <Mail size={11} className="shrink-0" />
+                  {profile.email}
                 </p>
               </div>
             </div>
