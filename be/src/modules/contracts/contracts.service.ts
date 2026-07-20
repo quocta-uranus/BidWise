@@ -299,42 +299,54 @@ export class ContractsService {
     }
 
     if (dto.action === 'APPROVED') {
-      const clientWallet = await this.prisma.wallet.findUnique({
-        where: { userId: clientId },
-      });
-
-      let freelancerWallet = await this.prisma.wallet.findUnique({
-        where: { userId: contract.freelancerId },
-      });
-
-      if (!freelancerWallet) {
-        freelancerWallet = await this.prisma.wallet.create({
-          data: {
-            userId: contract.freelancerId,
-            balance: 0,
-            escrow: 0,
-            totalEarned: 0,
-          },
-        });
-      }
-
       const updated = await this.prisma.$transaction(async (tx) => {
-        const m = await tx.milestone.update({
-          where: { id: milestoneId },
+        const clientWallet = await tx.wallet.findUnique({ where: { userId: clientId } });
+        if (!clientWallet) {
+          throw new BadRequestException('INSUFFICIENT_FUNDS_FOR_ESCROW');
+        }
+
+        const escrowShortage = Math.max(0, milestone.amount - clientWallet.escrow);
+        if (clientWallet.balance < escrowShortage) {
+          throw new BadRequestException('INSUFFICIENT_FUNDS_FOR_ESCROW');
+        }
+
+        const milestoneUpdate = await tx.milestone.updateMany({
+          where: { id: milestoneId, contractId, status: 'SUBMITTED' },
           data: {
             status: 'APPROVED',
             approvedAt: new Date(),
             clientFeedback: dto.feedback,
           },
         });
+        if (milestoneUpdate.count !== 1) {
+          throw new BadRequestException('MILESTONE_ALREADY_PROCESSED');
+        }
 
-        // Escrow deduction & freelancer crediting
-        if (clientWallet) {
-          await tx.wallet.update({
-            where: { id: clientWallet.id },
-            data: { escrow: { decrement: milestone.amount } },
+        const m = await tx.milestone.findUniqueOrThrow({ where: { id: milestoneId } });
+
+        let freelancerWallet = await tx.wallet.findUnique({
+          where: { userId: contract.freelancerId },
+        });
+        if (!freelancerWallet) {
+          freelancerWallet = await tx.wallet.create({
+            data: {
+              userId: contract.freelancerId,
+              balance: 0,
+              escrow: 0,
+              totalEarned: 0,
+            },
           });
         }
+
+        // Legacy contracts may not have been fully funded. Move any shortage
+        // from available balance into escrow before releasing the milestone.
+        await tx.wallet.update({
+          where: { id: clientWallet.id },
+          data: {
+            balance: { decrement: escrowShortage },
+            escrow: { increment: escrowShortage - milestone.amount },
+          },
+        });
 
         await tx.wallet.update({
           where: { id: freelancerWallet.id },
@@ -361,22 +373,20 @@ export class ContractsService {
         });
 
         // Transaction logs for client
-        if (clientWallet) {
-          await tx.transaction.create({
-            data: {
-              walletId: clientWallet.id,
-              type: 'EARNED',
-              amount: milestone.amount,
-              description: `Giải ngân cột mốc: ${milestone.title}`,
-              descKey: 'milestoneApproved',
-              descParams: {
-                jobId: contract.jobId,
-                milestoneKey: milestone.title,
-              },
-              status: 'SUCCESS',
+        await tx.transaction.create({
+          data: {
+            walletId: clientWallet.id,
+            type: 'ESCROW',
+            amount: milestone.amount,
+            description: `Giải ngân cột mốc: ${milestone.title}`,
+            descKey: 'milestoneApproved',
+            descParams: {
+              jobId: contract.jobId,
+              milestoneKey: milestone.title,
             },
-          });
-        }
+            status: 'SUCCESS',
+          },
+        });
 
         // Check if all milestones are approved → complete contract
         const allMilestones = await tx.milestone.findMany({ where: { contractId } });
@@ -534,7 +544,10 @@ export class ContractsService {
 
   // CL-22: Cancel contract
   async cancelContract(contractId: string, userId: string, dto: CancelContractDto) {
-    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: { milestones: { select: { amount: true, status: true } } },
+    });
     if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
     if (contract.clientId !== userId && contract.freelancerId !== userId) {
       throw new ForbiddenException('NOT_CONTRACT_PARTY');
@@ -544,6 +557,38 @@ export class ContractsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const clientWallet = await tx.wallet.findUnique({
+        where: { userId: contract.clientId },
+      });
+      const unreleasedAmount = contract.milestones
+        .filter((milestone) => milestone.status !== 'APPROVED')
+        .reduce((sum, milestone) => sum + milestone.amount, 0);
+      const refundableAmount = Math.min(
+        unreleasedAmount,
+        Math.max(0, clientWallet?.escrow ?? 0),
+      );
+
+      if (clientWallet && refundableAmount > 0) {
+        await tx.wallet.update({
+          where: { id: clientWallet.id },
+          data: {
+            escrow: { decrement: refundableAmount },
+            balance: { increment: refundableAmount },
+          },
+        });
+        await tx.transaction.create({
+          data: {
+            walletId: clientWallet.id,
+            type: 'REFUND',
+            amount: refundableAmount,
+            description: `Hoàn ký quỹ hợp đồng: ${contract.title}`,
+            descKey: 'refund',
+            descParams: { jobId: contract.jobId },
+            status: 'SUCCESS',
+          },
+        });
+      }
+
       const updated = await tx.contract.update({
         where: { id: contractId },
         data: {

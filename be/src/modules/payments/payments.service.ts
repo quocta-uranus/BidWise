@@ -44,19 +44,34 @@ export class PaymentsService {
     // Simulate async payment webhook after 3 seconds
     setTimeout(async () => {
       try {
-        await this.prisma.$transaction([
-          this.prisma.transaction.update({
+        await this.prisma.$transaction(async (tx) => {
+          const pendingTransaction = await tx.transaction.findUnique({
+            where: { id: transaction.id },
+          });
+
+          // A payment provider may retry the same webhook. Credit it only once.
+          if (!pendingTransaction || pendingTransaction.status !== 'PENDING') return;
+
+          const currentWallet = await tx.wallet.findUniqueOrThrow({
+            where: { id: wallet.id },
+          });
+          const escrowDebt = Math.max(0, -currentWallet.escrow);
+          const debtPayment = Math.min(depositDto.amount, escrowDebt);
+          const availableCredit = depositDto.amount - debtPayment;
+
+          await tx.transaction.update({
             where: { id: transaction.id },
             data: { status: 'SUCCESS' },
-          }),
-          this.prisma.wallet.update({
+          });
+          await tx.wallet.update({
             where: { id: wallet.id },
             data: {
-              balance: { increment: depositDto.amount },
+              balance: { increment: availableCredit },
+              escrow: { increment: debtPayment },
               totalEarned: { increment: depositDto.amount },
             },
-          }),
-        ]);
+          });
+        });
         console.log(`[Mock Webhook] Deposit SUCCESS for transaction: ${transaction.id}`);
       } catch (err) {
         console.error(`[Mock Webhook] Deposit failed for transaction: ${transaction.id}`, err);
