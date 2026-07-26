@@ -95,8 +95,7 @@ export class ContractsService {
           description: dto.description,
           totalAmount,
           customTerms: dto.customTerms,
-          status: 'ACTIVE',
-          startDate: now,
+          status: 'PENDING_FREELANCER',
           milestones: {
             create: dto.milestones.map((m) => ({
               order: m.order,
@@ -120,12 +119,105 @@ export class ContractsService {
         data: {
           contractId: contract.id,
           action: 'CREATED',
-          toStatus: 'ACTIVE',
+          toStatus: 'PENDING_FREELANCER',
           performedBy: clientId,
         },
       });
 
       return contract;
+    });
+  }
+
+  async acceptContract(freelancerId: string, contractId: string) {
+    const contract = await this.prisma.contract.findUnique({ where: { id: contractId } });
+    if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
+    if (contract.freelancerId !== freelancerId) throw new ForbiddenException('NOT_CONTRACT_FREELANCER');
+    if (contract.status !== 'PENDING_FREELANCER') throw new BadRequestException('CONTRACT_NOT_PENDING_REVIEW');
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.contract.update({
+        where: { id: contractId },
+        data: { status: 'ACTIVE', startDate: new Date() },
+        include: {
+          milestones: { orderBy: { order: 'asc' } },
+          client: { select: { id: true, fullName: true } },
+          freelancer: { select: { id: true, fullName: true } },
+        },
+      });
+
+      await tx.contractStatusLog.create({
+        data: {
+          contractId,
+          action: 'FREELANCER_ACCEPTED',
+          fromStatus: 'PENDING_FREELANCER',
+          toStatus: 'ACTIVE',
+          performedBy: freelancerId,
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  async declineContract(freelancerId: string, contractId: string, reason?: string) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: { milestones: { select: { amount: true, status: true } } },
+    });
+    if (!contract) throw new NotFoundException('CONTRACT_NOT_FOUND');
+    if (contract.freelancerId !== freelancerId) throw new ForbiddenException('NOT_CONTRACT_FREELANCER');
+    if (contract.status !== 'PENDING_FREELANCER') throw new BadRequestException('CONTRACT_NOT_PENDING_REVIEW');
+
+    return this.prisma.$transaction(async (tx) => {
+      const clientWallet = await tx.wallet.findUnique({ where: { userId: contract.clientId } });
+      const totalAmount = Number(contract.totalAmount);
+      const refundAmount = Math.min(totalAmount, Math.max(0, clientWallet?.escrow ?? 0));
+
+      if (clientWallet && refundAmount > 0) {
+        await tx.wallet.update({
+          where: { id: clientWallet.id },
+          data: {
+            escrow: { decrement: refundAmount },
+            balance: { increment: refundAmount },
+          },
+        });
+        await tx.transaction.create({
+          data: {
+            walletId: clientWallet.id,
+            type: 'REFUND',
+            amount: refundAmount,
+            description: `Hoàn ký quỹ: Freelancer từ chối hợp đồng "${contract.title}"`,
+            descKey: 'refund',
+            descParams: { jobId: contract.jobId },
+            status: 'SUCCESS',
+          },
+        });
+      }
+
+      const updated = await tx.contract.update({
+        where: { id: contractId },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancelReason: reason ?? 'Freelancer từ chối hợp đồng',
+        },
+      });
+
+      await tx.contractStatusLog.create({
+        data: {
+          contractId,
+          action: 'FREELANCER_DECLINED',
+          fromStatus: 'PENDING_FREELANCER',
+          toStatus: 'CANCELLED',
+          reason: reason ?? 'Freelancer từ chối hợp đồng',
+          performedBy: freelancerId,
+        },
+      });
+
+      await tx.job.update({ where: { id: contract.jobId }, data: { status: 'CLOSED' } });
+      await tx.bid.update({ where: { id: contract.bidId }, data: { status: 'REJECTED' } });
+
+      return updated;
     });
   }
 
@@ -173,13 +265,14 @@ export class ContractsService {
     });
   }
 
-  // FL-22: Freelancer submits a milestone (Modified for actual file upload)
+  // FL-22: Freelancer submits a milestone (file upload and/or GitHub link)
   async submitMilestone(
     contractId: string,
     milestoneId: string,
     freelancerId: string,
     description: string,
     file: any,
+    githubUrl?: string,
   ) {
     const { contract, milestone } = await this.getMilestoneForFreelancer(contractId, milestoneId, freelancerId);
 
@@ -187,49 +280,67 @@ export class ContractsService {
       throw new BadRequestException('MILESTONE_CANNOT_BE_SUBMITTED');
     }
 
-    if (!file) {
-      throw new BadRequestException('Vui lòng chọn file để nộp.');
+    if (!file && !githubUrl?.trim()) {
+      throw new BadRequestException('Vui lòng cung cấp file hoặc GitHub link để nộp.');
     }
 
     const autoApproveAt = new Date();
     autoApproveAt.setDate(autoApproveAt.getDate() + contract.autoApprovalDays);
 
-    const dir = join(process.cwd(), 'uploads', 'contracts', contractId, 'milestones', milestoneId);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    } else {
-      try {
-        const files = readdirSync(dir);
-        for (const f of files) {
-          unlinkSync(join(dir, f));
+    if (file) {
+      const dir = join(process.cwd(), 'uploads', 'contracts', contractId, 'milestones', milestoneId);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      } else {
+        try {
+          const existingFiles = readdirSync(dir);
+          for (const f of existingFiles) {
+            unlinkSync(join(dir, f));
+          }
+        } catch (err) {
+          // ignore
         }
-      } catch (err) {
-        // ignore
       }
+      const ext = extname(file.originalname).toLowerCase() || '.bin';
+      const storedName = `${randomUUID()}${ext}`;
+      writeFileSync(join(dir, storedName), file.buffer);
     }
 
-    const ext = extname(file.originalname).toLowerCase() || '.bin';
-    const storedName = `${randomUUID()}${ext}`;
-    const storagePath = join(dir, storedName);
-    writeFileSync(storagePath, file.buffer);
-
     return this.prisma.$transaction(async (tx) => {
-      // Clear any previous deliverables
-      await tx.milestoneDeliverable.deleteMany({
-        where: { milestoneId }
-      });
+      await tx.milestoneDeliverable.deleteMany({ where: { milestoneId } });
 
-      // Create new deliverable record
-      const deliverable = await tx.milestoneDeliverable.create({
-        data: {
+      const deliverablesToCreate: {
+        milestoneId: string;
+        fileName: string;
+        fileUrl: string;
+        fileSize: number | null;
+        mimeType: string | null;
+        description: string;
+      }[] = [];
+
+      if (file) {
+        deliverablesToCreate.push({
           milestoneId,
           fileName: file.originalname,
           fileUrl: `/api/v1/contracts/${contractId}/milestones/${milestoneId}/download`,
           fileSize: file.size,
           mimeType: file.mimetype,
           description: description || '',
-        }
-      });
+        });
+      }
+
+      if (githubUrl?.trim()) {
+        deliverablesToCreate.push({
+          milestoneId,
+          fileName: 'GitHub Repository',
+          fileUrl: githubUrl.trim(),
+          fileSize: null,
+          mimeType: 'text/x-github-url',
+          description: description || '',
+        });
+      }
+
+      await tx.milestoneDeliverable.createMany({ data: deliverablesToCreate });
 
       const updated = await tx.milestone.update({
         where: { id: milestoneId },

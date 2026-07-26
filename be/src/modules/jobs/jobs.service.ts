@@ -61,11 +61,11 @@ export class JobsService {
     }
   }
 
-  async findAll(clientId?: string) {
+  async findAll(clientId?: string, status?: string) {
     console.log('=== findAll called ===');
     console.log('clientId:', clientId);
     const where = clientId
-      ? { clientId, deletedAt: null }
+      ? { clientId, deletedAt: null, ...(status ? { status: status as JobStatus } : {}) }
       : { deletedAt: null, isHidden: false };
     console.log('where:', JSON.stringify(where));
     try {

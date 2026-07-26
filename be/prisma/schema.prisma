@@ -84,6 +84,7 @@ enum BidStatus {
 
 enum ContractStatus {
   DRAFT
+  PENDING_FREELANCER
   ACTIVE
   PAUSED
   COMPLETED
@@ -103,6 +104,8 @@ enum MilestoneStatus {
 enum ContractActionType {
   CREATED
   ACTIVATED
+  FREELANCER_ACCEPTED
+  FREELANCER_DECLINED
   PAUSED
   RESUMED
   COMPLETED
@@ -199,6 +202,7 @@ model User {
   clientConversations     Conversation[] @relation("ClientConversations")
   freelancerConversations Conversation[] @relation("FreelancerConversations")
   sentMessages            Message[]      @relation("SentMessages")
+  deviceTokens            DeviceToken[]
 
   @@index([email])
   @@index([status])
@@ -847,6 +851,22 @@ model DisputeEvidence {
 
   @@index([disputeId, submittedBy])
   @@map("dispute_evidence")
+}
+
+// ─── MOBILE DEVICE TOKENS ────────────────────────────────────────────────────
+
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   // "android" | "ios"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 model SystemConfig {

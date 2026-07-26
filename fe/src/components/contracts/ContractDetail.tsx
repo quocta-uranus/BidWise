@@ -3,7 +3,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { X, AlertOctagon, Star, MessageSquare } from "lucide-react";
+import { X, AlertOctagon, Star, MessageSquare, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { Contract, contractsApi } from "@/lib/api/contracts.api";
 import { createConversation } from "@/lib/api/chat.api";
 import MilestoneTimeline from "./MilestoneTimeline";
@@ -20,6 +20,7 @@ interface Props {
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
+  PENDING_FREELANCER: "Chờ xác nhận",
   ACTIVE: "Đang thực hiện",
   PAUSED: "Tạm dừng",
   COMPLETED: "Hoàn thành",
@@ -49,7 +50,10 @@ export default function ContractDetail({
   const [submitModal, setSubmitModal] = useState<string | null>(null);
   const [submitNotes, setSubmitNotes] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [githubLink, setGithubLink] = useState("");
 
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [qualityRating, setQualityRating] = useState(5);
   const [commRating, setCommRating] = useState(5);
@@ -95,17 +99,19 @@ export default function ContractDetail({
   };
 
   const executeSubmit = async () => {
-    if (!submitModal || !selectedFile) {
-      toast.error('Vui lòng chọn file để nộp!');
+    if (!submitModal) return;
+    if (!selectedFile && !githubLink.trim()) {
+      toast.error('Vui lòng chọn file hoặc nhập GitHub link!');
       return;
     }
     setActionLoading(submitModal);
     try {
-      await contractsApi.submitMilestone(contract.id, submitModal, selectedFile, submitNotes);
+      await contractsApi.submitMilestone(contract.id, submitModal, selectedFile, submitNotes, githubLink.trim() || undefined);
       toast.success("Đã nộp milestone thành công!");
       setSubmitModal(null);
       setSubmitNotes("");
       setSelectedFile(null);
+      setGithubLink("");
       onRefresh();
       useFreelancer.getState().fetchWallet();
       useFreelancer.getState().fetchTransactions();
@@ -198,6 +204,34 @@ export default function ContractDetail({
     }
   };
 
+  const executeAccept = async () => {
+    setActionLoading("accept");
+    try {
+      await contractsApi.acceptContract(contract.id);
+      toast.success("Bạn đã chấp nhận hợp đồng! Công việc bắt đầu.");
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? "Không thể chấp nhận hợp đồng");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const executeDecline = async () => {
+    setActionLoading("decline");
+    try {
+      await contractsApi.declineContract(contract.id, declineReason || undefined);
+      toast.success("Đã từ chối hợp đồng. Escrow được hoàn lại cho client.");
+      setShowDeclineModal(false);
+      onClose();
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? "Không thể từ chối hợp đồng");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const openChat = async () => {
     setOpeningChat(true);
     try {
@@ -260,6 +294,53 @@ export default function ContractDetail({
         </div>
 
         <div className="p-5 space-y-5">
+          {/* PENDING_FREELANCER banner for freelancer */}
+          {contract.status === 'PENDING_FREELANCER' && userRole === 'freelancer' && (
+            <div className="bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <Clock className="text-violet-500 shrink-0 mt-0.5" size={18} />
+                <div>
+                  <p className="text-sm font-bold text-violet-900">Bạn nhận được đề nghị hợp đồng!</p>
+                  <p className="text-xs text-violet-600 mt-0.5">
+                    Client <span className="font-semibold">{contract.client.fullName}</span> đã gửi hợp đồng cho bạn.
+                    Hãy xem xét kỹ các điều khoản và milestone bên dưới trước khi quyết định.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setShowDeclineModal(true)}
+                  disabled={!!actionLoading}
+                  className="flex-1 py-2 rounded-xl border border-rose-300 text-rose-600 text-sm font-semibold hover:bg-rose-50 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <XCircle size={14} /> Từ chối
+                </button>
+                <button
+                  onClick={executeAccept}
+                  disabled={!!actionLoading}
+                  className="flex-1 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 size={14} />
+                  {actionLoading === 'accept' ? 'Đang xử lý...' : 'Chấp nhận'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* PENDING_FREELANCER banner for client */}
+          {contract.status === 'PENDING_FREELANCER' && userRole === 'client' && (
+            <div className="bg-violet-50 border border-violet-200 rounded-xl p-3.5 flex items-start gap-3">
+              <Clock className="text-violet-500 shrink-0 mt-0.5" size={16} />
+              <div>
+                <p className="text-xs font-bold text-violet-900">Đang chờ freelancer xem xét</p>
+                <p className="text-xs text-violet-600 mt-0.5">
+                  Hợp đồng đã gửi đến <span className="font-semibold">{contract.freelancer.fullName}</span>.
+                  Escrow đã được khóa. Freelancer sẽ chấp nhận hoặc từ chối trong thời gian sớm nhất.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Contract info */}
           {contract.description && (
             <div className="bg-slate-50 rounded-xl p-3.5">
@@ -324,15 +405,11 @@ export default function ContractDetail({
       {submitModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="font-bold text-slate-900">
-              Nộp nghiệm thu milestone — FL-22
-            </h3>
+            <h3 className="font-bold text-slate-900">Nộp nghiệm thu milestone</h3>
 
-            {/* FL-20: progress notes */}
+            {/* Progress notes */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Ghi chú tiến độ (FL-20)
-              </label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ghi chú tiến độ</label>
               <textarea
                 value={submitNotes}
                 onChange={(e) => setSubmitNotes(e.target.value)}
@@ -342,37 +419,69 @@ export default function ContractDetail({
               />
             </div>
 
-            {/* FL-21: Deliverables */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">Sản phẩm bàn giao (FL-21)</label>
-              <div className="border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-2xl p-6 text-center cursor-pointer relative bg-slate-50/50 hover:bg-slate-50 transition-all">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-700">
+                Sản phẩm bàn giao <span className="font-normal text-slate-400">(file, GitHub link, hoặc cả hai)</span>
+              </p>
+
+              {/* File upload */}
+              <div className="border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-2xl p-5 text-center cursor-pointer relative bg-slate-50/50 hover:bg-slate-50 transition-all">
                 <input
                   type="file"
                   onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
-                <div className="space-y-1.5 text-xs text-slate-500">
-                  <p className="font-bold text-slate-700">
-                    {selectedFile ? `✓ Đã chọn: ${selectedFile.name}` : "Kéo thả hoặc nhấp để chọn file"}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-medium">Hỗ trợ zip, pdf, docx, png, jpg (tối đa 50MB)</p>
-                </div>
+                {selectedFile ? (
+                  <div className="flex items-center justify-center gap-2 text-xs text-emerald-600 font-semibold">
+                    <span className="text-emerald-500">✓</span> {selectedFile.name}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
+                      className="ml-1 text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1 text-xs text-slate-500">
+                    <p className="font-semibold text-slate-600">Kéo thả hoặc nhấp để chọn file</p>
+                    <p className="text-[10px] text-slate-400">zip, pdf, docx, png, jpg... (tối đa 50MB)</p>
+                  </div>
+                )}
               </div>
+
+              {/* GitHub link */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-xs font-semibold text-slate-700">GitHub / Repository Link</span>
+                </div>
+                <input
+                  type="url"
+                  value={githubLink}
+                  onChange={(e) => setGithubLink(e.target.value)}
+                  placeholder="https://github.com/username/repo"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {!selectedFile && !githubLink.trim() && (
+                <p className="text-xs text-amber-600 font-medium">* Cần cung cấp ít nhất file hoặc GitHub link</p>
+              )}
             </div>
 
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => { setSubmitModal(null); setSelectedFile(null); }}
+                onClick={() => { setSubmitModal(null); setSelectedFile(null); setGithubLink(""); }}
                 className="flex-1 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
               >
                 Hủy
               </button>
               <button
                 onClick={executeSubmit}
-                disabled={!selectedFile || !!actionLoading}
+                disabled={(!selectedFile && !githubLink.trim()) || !!actionLoading}
                 className="flex-1 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {actionLoading ? "..." : "Nộp nghiệm thu"}
+                {actionLoading ? "Đang nộp..." : "Nộp nghiệm thu"}
               </button>
             </div>
           </div>
@@ -498,6 +607,43 @@ export default function ContractDetail({
                 className="flex-1 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 disabled:opacity-50"
               >
                 {actionLoading ? "..." : "Hủy hợp đồng"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline contract modal */}
+      {showDeclineModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <h3 className="font-bold text-rose-600">Từ chối hợp đồng</h3>
+            <p className="text-sm text-slate-600">
+              Nếu bạn từ chối, hợp đồng sẽ bị huỷ, escrow được hoàn lại cho client và client có thể chọn freelancer khác.
+            </p>
+            <div>
+              <label className="block text-xs text-slate-600 mb-1.5">Lý do từ chối (tùy chọn)</label>
+              <textarea
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                rows={3}
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-rose-500"
+                placeholder="Ví dụ: Điều khoản không phù hợp, deadline quá gấp..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeclineModal(false)}
+                className="flex-1 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Quay lại
+              </button>
+              <button
+                onClick={executeDecline}
+                disabled={actionLoading === 'decline'}
+                className="flex-1 py-2 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 disabled:opacity-50"
+              >
+                {actionLoading === 'decline' ? 'Đang xử lý...' : 'Xác nhận từ chối'}
               </button>
             </div>
           </div>

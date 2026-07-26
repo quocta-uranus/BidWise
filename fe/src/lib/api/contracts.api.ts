@@ -41,7 +41,7 @@ export interface Contract {
   title: string;
   description: string | null;
   totalAmount: number;
-  status: 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'DISPUTED' | 'CANCELLED';
+  status: 'DRAFT' | 'PENDING_FREELANCER' | 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'DISPUTED' | 'CANCELLED';
   customTerms: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -124,21 +124,35 @@ export const contractsApi = {
   submitMilestone: async (
     contractId: string,
     milestoneId: string,
-    file: File,
+    file: File | null,
     description: string,
+    githubUrl?: string,
   ): Promise<Milestone> => {
     const formData = new FormData();
-    formData.append('file', file);
+    if (file) formData.append('file', file);
+    if (githubUrl?.trim()) formData.append('githubUrl', githubUrl.trim());
     formData.append('description', description);
 
     const res = await api.post(
       `/freelancer/contracts/${contractId}/milestones/${milestoneId}/submit`,
       formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      },
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     );
     return res.data.data;
+  },
+
+  downloadDeliverable: async (contractId: string, milestoneId: string, fileName: string): Promise<void> => {
+    const res = await api.get(`/contracts/${contractId}/milestones/${milestoneId}/download`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   updateMilestoneProgress: async (contractId: string, milestoneId: string, notes: string) => {
@@ -151,6 +165,16 @@ export const contractsApi = {
 
   cancelFreelancerContract: async (contractId: string, reason: string) => {
     const res = await api.patch(`/freelancer/contracts/${contractId}/cancel`, { reason });
+    return res.data.data;
+  },
+
+  acceptContract: async (contractId: string): Promise<Contract> => {
+    const res = await api.post(`/freelancer/contracts/${contractId}/accept`);
+    return res.data.data;
+  },
+
+  declineContract: async (contractId: string, reason?: string): Promise<Contract> => {
+    const res = await api.post(`/freelancer/contracts/${contractId}/decline`, { reason });
     return res.data.data;
   },
 

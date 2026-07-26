@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { useFreelancer } from '@/lib/hooks/useFreelancer';
 import { useTranslation } from '@/lib/i18n/useTranslation';
@@ -21,6 +20,7 @@ import EarningsTab from '@/components/freelancer/EarningsTab';
 import ClientJobsTab from '@/components/client/ClientJobsTab';
 import ClientContractsTab from '@/components/client/ClientContractsTab';
 import CreateJobModal from '@/components/client/CreateJobModal';
+import SettingsTab from '@/components/settings/SettingsTab';
 
 // Client subcomponents
 import ExploreFreelancersTab from '@/components/client/ExploreFreelancersTab';
@@ -163,6 +163,7 @@ export default function DashboardPage() {
     freelancers: language === 'vi' ? 'Khám phá Freelancers' : 'Explore Freelancers',
     profile: t('dashboard.titleProfile'),
     wallet: activeRole === 'CLIENT' ? (language === 'vi' ? 'Chi phí thầu & Ví tiền' : 'Billing & Wallet') : t('dashboard.titleWallet'),
+    settings: language === 'vi' ? 'Cài đặt tài khoản' : 'Account Settings',
   };
 
   const freelancerStats = [
@@ -239,6 +240,16 @@ export default function DashboardPage() {
         </svg>
       ),
     },
+    {
+      id: 'settings',
+      name: language === 'vi' ? 'Cài đặt' : 'Settings',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
   ];
 
   const clientNav = [
@@ -284,6 +295,16 @@ export default function DashboardPage() {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'settings',
+      name: language === 'vi' ? 'Cài đặt' : 'Settings',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
@@ -480,8 +501,8 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <RoleSwitcher />
             <LanguageSwitcher />
-            <Link
-              href="/settings"
+            <button
+              onClick={() => setActiveTab('settings')}
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-blue-50 font-bold"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -489,7 +510,7 @@ export default function DashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               <span className="hidden sm:inline">{t('common.settings')}</span>
-            </Link>
+            </button>
             <button
               onClick={() => logout()}
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50 font-bold"
@@ -843,6 +864,7 @@ export default function DashboardPage() {
             {activeTab === 'contracts' && activeRole === 'FREELANCER' && <ContractsTab />}
             {activeTab === 'contracts' && activeRole === 'CLIENT' && <ClientContractsTab />}
             {activeTab === 'wallet' && <EarningsTab />}
+            {activeTab === 'settings' && <SettingsTab />}
           </div>
         </main>
       </div>
