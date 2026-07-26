@@ -1,7 +1,9 @@
 'use client';
 
-import { Check, Clock, Upload, AlertCircle, RotateCcw, Circle, DollarSign, CalendarDays } from 'lucide-react';
-import { Milestone } from '@/lib/api/contracts.api';
+import { useState } from 'react';
+import { Check, Clock, Upload, AlertCircle, RotateCcw, Circle, DollarSign, CalendarDays, GitBranch, Download } from 'lucide-react';
+import { Milestone, contractsApi } from '@/lib/api/contracts.api';
+import { toast } from 'sonner';
 
 function DeadlineCountdown({ deadline, status }: { deadline: string; status: string }) {
   const now = new Date();
@@ -41,6 +43,7 @@ interface Props {
 }
 
 export default function MilestoneTimeline({ milestones, totalAmount, userRole, onAction, actionLoading }: Props) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const approvedCount = milestones.filter((m) => m.status === 'APPROVED').length;
   const progressPct = milestones.length > 0 ? Math.round((approvedCount / milestones.length) * 100) : 0;
 
@@ -261,17 +264,42 @@ export default function MilestoneTimeline({ milestones, totalAmount, userRole, o
                     {/* Deliverables */}
                     {m.deliverables && m.deliverables.length > 0 && (
                       <div className="mt-2 flex gap-1.5 flex-wrap">
-                        {m.deliverables.map((d) => (
-                          <a
-                            key={d.id}
-                            href={d.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-100 flex items-center gap-1"
-                          >
-                            <Upload size={10} /> {d.fileName}
-                          </a>
-                        ))}
+                        {m.deliverables.map((d) => {
+                          const isGithub = d.mimeType === 'text/x-github-url';
+                          if (isGithub) {
+                            return (
+                              <a
+                                key={d.id}
+                                href={d.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs bg-slate-900 text-white px-2.5 py-1 rounded-lg hover:bg-slate-700 flex items-center gap-1.5 font-medium"
+                              >
+                                <GitBranch size={11} /> GitHub Link
+                              </a>
+                            );
+                          }
+                          return (
+                            <button
+                              key={d.id}
+                              disabled={downloadingId === d.id}
+                              onClick={async () => {
+                                setDownloadingId(d.id);
+                                try {
+                                  await contractsApi.downloadDeliverable(m.contractId, m.id, d.fileName);
+                                } catch {
+                                  toast.error('Không thể tải file');
+                                } finally {
+                                  setDownloadingId(null);
+                                }
+                              }}
+                              className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg hover:bg-blue-100 flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              <Download size={11} />
+                              {downloadingId === d.id ? 'Đang tải...' : d.fileName}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

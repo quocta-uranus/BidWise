@@ -62,7 +62,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="bg-[#f4f7fb] min-h-[calc(100vh-5rem)]">
+    <div className="bg-[#f4f7fb] min-h-screen">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center">

@@ -7,9 +7,10 @@ import ContractCard from '@/components/contracts/ContractCard';
 import ContractDetail from '@/components/contracts/ContractDetail';
 import { toast } from 'sonner';
 
-const STATUS_FILTERS = ['ALL', 'ACTIVE', 'COMPLETED', 'DISPUTED', 'CANCELLED'];
+const STATUS_FILTERS = ['ALL', 'PENDING_FREELANCER', 'ACTIVE', 'COMPLETED', 'DISPUTED', 'CANCELLED'];
 const STATUS_LABELS: Record<string, string> = {
   ALL: 'Tất cả',
+  PENDING_FREELANCER: 'Chờ xác nhận',
   ACTIVE: 'Đang thực hiện',
   COMPLETED: 'Hoàn thành',
   DISPUTED: 'Tranh chấp',
@@ -50,8 +51,9 @@ export default function ContractsTab() {
     ? contracts
     : contracts.filter((c) => c.status === filterStatus);
 
+  const pendingReview = contracts.filter((c) => c.status === 'PENDING_FREELANCER').length;
   const pendingSubmit = contracts.filter((c) =>
-    c.milestones.some((m) => ['NOT_STARTED', 'IN_PROGRESS', 'REVISION_REQUESTED'].includes(m.status))
+    c.status === 'ACTIVE' && c.milestones.some((m) => ['NOT_STARTED', 'IN_PROGRESS', 'REVISION_REQUESTED'].includes(m.status))
   ).length;
 
   return (
@@ -60,8 +62,8 @@ export default function ContractsTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Tổng hợp đồng', value: contracts.length, color: 'text-slate-700' },
-          { label: 'Đang thực hiện', value: contracts.filter((c) => c.status === 'ACTIVE').length, color: 'text-blue-600' },
-          { label: 'Cần hành động', value: pendingSubmit, color: 'text-amber-600' },
+          { label: 'Chờ xác nhận', value: pendingReview, color: 'text-violet-600' },
+          { label: 'Cần nộp bài', value: pendingSubmit, color: 'text-amber-600' },
           { label: 'Hoàn thành', value: contracts.filter((c) => c.status === 'COMPLETED').length, color: 'text-emerald-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 rounded-2xl p-4 text-center">
@@ -73,22 +75,27 @@ export default function ContractsTab() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {STATUS_FILTERS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-              filterStatus === s
-                ? 'bg-blue-600 text-white font-semibold'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {STATUS_LABELS[s] ?? s}
-            <span className="ml-1 opacity-70">
-              ({s === 'ALL' ? contracts.length : contracts.filter((c) => c.status === s).length})
-            </span>
-          </button>
-        ))}
+        {STATUS_FILTERS.map((s) => {
+          const count = s === 'ALL' ? contracts.length : contracts.filter((c) => c.status === s).length;
+          const isPendingTab = s === 'PENDING_FREELANCER' && pendingReview > 0;
+          return (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`relative text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                filterStatus === s
+                  ? s === 'PENDING_FREELANCER' ? 'bg-violet-600 text-white font-semibold' : 'bg-blue-600 text-white font-semibold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {isPendingTab && filterStatus !== s && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
+              )}
+              {STATUS_LABELS[s] ?? s}
+              <span className="ml-1 opacity-70">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* List */}
@@ -100,10 +107,14 @@ export default function ContractsTab() {
           <p className="font-semibold text-slate-600">
             {filterStatus === 'ALL'
               ? 'Bạn chưa có hợp đồng nào.'
+              : filterStatus === 'PENDING_FREELANCER'
+              ? 'Không có hợp đồng chờ xác nhận.'
               : `Không có hợp đồng ${STATUS_LABELS[filterStatus]?.toLowerCase()}.`}
           </p>
           <p className="text-xs text-slate-400">
-            Hợp đồng xuất hiện sau khi bid của bạn được client chấp nhận.
+            {filterStatus === 'PENDING_FREELANCER'
+              ? 'Khi client gửi hợp đồng cho bạn, nó sẽ xuất hiện ở đây.'
+              : 'Hợp đồng xuất hiện sau khi bạn chấp nhận đề nghị từ client.'}
           </p>
         </div>
       ) : (

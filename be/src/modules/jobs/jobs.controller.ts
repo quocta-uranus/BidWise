@@ -125,8 +125,11 @@ export class JobsController {
   @Get('my-jobs')
   @UseGuards(RolesGuard)
   @Roles(RoleType.CLIENT)
-  findMyJobs(@CurrentUser() user: AccessTokenPayload) {
-    return this.jobsService.findAll(user.sub);
+  findMyJobs(
+    @CurrentUser() user: AccessTokenPayload,
+    @Query('status') status?: string,
+  ) {
+    return this.jobsService.findAll(user.sub, status);
   }
 
   @Get('my-bids')

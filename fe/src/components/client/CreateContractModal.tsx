@@ -86,7 +86,7 @@ export default function CreateContractModal({ bidId, bidAmount, jobTitle, onClos
         })),
       };
       await contractsApi.createContract(dto);
-      toast.success('Hợp đồng đã được tạo thành công!');
+      toast.success('Hợp đồng đã gửi đến freelancer để xem xét. Escrow đã được khóa!');
       onSuccess();
     } catch (e: any) {
       const msg = e.response?.data?.message;

@@ -113,7 +113,7 @@ export class FreelancerContractsController {
     return this.service.getContract(id, user.sub);
   }
 
-  // FL-22: Submit milestone (Modified for actual file upload)
+  // FL-22: Submit milestone (file and/or GitHub link)
   @Post(':id/milestones/:milestoneId/submit')
   @Roles(RoleType.FREELANCER)
   @UseInterceptors(FileInterceptor('file', {
@@ -125,9 +125,10 @@ export class FreelancerContractsController {
     @Param('id') id: string,
     @Param('milestoneId') milestoneId: string,
     @Body('description') description: string,
+    @Body('githubUrl') githubUrl: string,
     @UploadedFile() file: any,
   ) {
-    return this.service.submitMilestone(id, milestoneId, user.sub, description, file);
+    return this.service.submitMilestone(id, milestoneId, user.sub, description, file, githubUrl);
   }
 
   // FL-20: Update milestone progress
@@ -140,6 +141,24 @@ export class FreelancerContractsController {
     @Body('notes') notes: string,
   ) {
     return this.service.updateMilestoneProgress(id, milestoneId, user.sub, notes);
+  }
+
+  // Accept contract offer
+  @Post(':id/accept')
+  @Roles(RoleType.FREELANCER)
+  acceptContract(@CurrentUser() user: AccessTokenPayload, @Param('id') id: string) {
+    return this.service.acceptContract(user.sub, id);
+  }
+
+  // Decline contract offer
+  @Post(':id/decline')
+  @Roles(RoleType.FREELANCER)
+  declineContract(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.service.declineContract(user.sub, id, reason);
   }
 
   // Cancel (both parties can cancel)

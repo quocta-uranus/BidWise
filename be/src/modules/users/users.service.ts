@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionService } from '../session/session.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 
 @Injectable()
 export class UsersService {
@@ -59,5 +60,19 @@ export class UsersService {
     });
     if (!session) throw new NotFoundException('SESSION_NOT_FOUND');
     await this.sessionService.revoke(sessionId);
+  }
+
+  async registerDeviceToken(userId: string, dto: RegisterDeviceTokenDto): Promise<void> {
+    await this.prisma.deviceToken.upsert({
+      where: { token: dto.token },
+      update: { userId, platform: dto.platform },
+      create: { userId, token: dto.token, platform: dto.platform },
+    });
+  }
+
+  async removeDeviceToken(userId: string, token: string): Promise<void> {
+    await this.prisma.deviceToken.deleteMany({
+      where: { userId, token },
+    });
   }
 }

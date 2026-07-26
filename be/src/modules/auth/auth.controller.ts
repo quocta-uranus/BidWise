@@ -18,6 +18,7 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -124,6 +125,46 @@ export class AuthController {
     const result = await this.authService.refresh(rawToken, payload);
     setRefreshCookie(res, result.refreshToken);
     return { accessToken: result.accessToken };
+  }
+
+  @Public()
+  @Post('login-mobile')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async loginMobile(@Body() dto: LoginDto, @Req() req: AnyReq) {
+    const result = await this.authService.login(dto, getIp(req), req.headers['user-agent']);
+    if ('requires2fa' in result) return result;
+    return result; // trả đầy đủ { accessToken, refreshToken, user, ... }
+  }
+
+  @Public()
+  @Post('verify-email-mobile')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmailMobile(@Body() dto: VerifyOtpDto, @Req() req: AnyReq) {
+    return this.authService.verifyEmail(
+      dto.userId, dto.otp, getIp(req), req.headers['user-agent'],
+    ); // trả đầy đủ { accessToken, refreshToken, user, ... }
+  }
+
+  @Public()
+  @Post('refresh-mobile')
+  @HttpCode(HttpStatus.OK)
+  async refreshMobile(
+    @Body() dto: RefreshTokenDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const rawToken = dto.refreshToken;
+    const parts = rawToken.split('.');
+    if (parts.length !== 3) {
+      res.status(401).json({ message: 'REFRESH_TOKEN_INVALID' });
+      return;
+    }
+    const payload = JSON.parse(
+      Buffer.from(parts[1], 'base64url').toString(),
+    ) as { sub: string; tokenId: string; sessionId: string };
+
+    const result = await this.authService.refresh(rawToken, payload);
+    return { accessToken: result.accessToken, refreshToken: result.refreshToken };
   }
 
   @UseGuards(JwtAuthGuard)

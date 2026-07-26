@@ -7,9 +7,10 @@ import ContractCard from '@/components/contracts/ContractCard';
 import ContractDetail from '@/components/contracts/ContractDetail';
 import { toast } from 'sonner';
 
-const STATUS_FILTERS = ['ALL', 'ACTIVE', 'COMPLETED', 'DISPUTED', 'CANCELLED'];
+const STATUS_FILTERS = ['ALL', 'PENDING_FREELANCER', 'ACTIVE', 'COMPLETED', 'DISPUTED', 'CANCELLED'];
 const STATUS_LABELS: Record<string, string> = {
   ALL: 'Tất cả',
+  PENDING_FREELANCER: 'Chờ xác nhận',
   ACTIVE: 'Đang thực hiện',
   COMPLETED: 'Hoàn thành',
   DISPUTED: 'Tranh chấp',
@@ -50,8 +51,9 @@ export default function ClientContractsTab() {
     ? contracts
     : contracts.filter((c) => c.status === filterStatus);
 
-  const pendingReview = contracts.filter((c) =>
-    c.milestones.some((m) => m.status === 'SUBMITTED')
+  const pendingFreelancerConfirm = contracts.filter((c) => c.status === 'PENDING_FREELANCER').length;
+  const pendingMilestoneReview = contracts.filter((c) =>
+    c.status === 'ACTIVE' && c.milestones.some((m) => m.status === 'SUBMITTED')
   ).length;
 
   return (
@@ -60,8 +62,8 @@ export default function ClientContractsTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Tổng hợp đồng', value: contracts.length, color: 'text-slate-700' },
-          { label: 'Đang thực hiện', value: contracts.filter((c) => c.status === 'ACTIVE').length, color: 'text-blue-600' },
-          { label: 'Chờ nghiệm thu', value: pendingReview, color: 'text-amber-600' },
+          { label: 'Chờ freelancer', value: pendingFreelancerConfirm, color: 'text-violet-600' },
+          { label: 'Chờ nghiệm thu', value: pendingMilestoneReview, color: 'text-amber-600' },
           { label: 'Hoàn thành', value: contracts.filter((c) => c.status === 'COMPLETED').length, color: 'text-emerald-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 rounded-2xl p-4 text-center">
@@ -73,22 +75,27 @@ export default function ClientContractsTab() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {STATUS_FILTERS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-              filterStatus === s
-                ? 'bg-blue-600 text-white font-semibold'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {STATUS_LABELS[s] ?? s}
-            <span className="ml-1 opacity-70">
-              ({s === 'ALL' ? contracts.length : contracts.filter((c) => c.status === s).length})
-            </span>
-          </button>
-        ))}
+        {STATUS_FILTERS.map((s) => {
+          const count = s === 'ALL' ? contracts.length : contracts.filter((c) => c.status === s).length;
+          const isPendingTab = s === 'PENDING_FREELANCER' && pendingFreelancerConfirm > 0;
+          return (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`relative text-xs px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                filterStatus === s
+                  ? s === 'PENDING_FREELANCER' ? 'bg-violet-600 text-white font-semibold' : 'bg-blue-600 text-white font-semibold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {isPendingTab && filterStatus !== s && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
+              )}
+              {STATUS_LABELS[s] ?? s}
+              <span className="ml-1 opacity-70">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* List */}

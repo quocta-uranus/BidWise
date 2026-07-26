@@ -1,10 +1,11 @@
 'use client';
 
 import { Contract } from '@/lib/api/contracts.api';
-import { FileText, Calendar, DollarSign, CheckCircle, AlertTriangle } from 'lucide-react';
+import { FileText, Calendar, DollarSign, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 
 const CONTRACT_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Draft', color: 'bg-slate-100 text-slate-600' },
+  PENDING_FREELANCER: { label: 'Chờ xác nhận', color: 'bg-violet-100 text-violet-700' },
   ACTIVE: { label: 'Đang thực hiện', color: 'bg-blue-100 text-blue-700' },
   PAUSED: { label: 'Tạm dừng', color: 'bg-amber-100 text-amber-700' },
   COMPLETED: { label: 'Hoàn thành', color: 'bg-emerald-100 text-emerald-700' },
@@ -58,7 +59,13 @@ export default function ContractCard({ contract, userRole, onClick }: Props) {
           <CheckCircle size={11} className="text-blue-400" />
           <span>{approvedMilestones}/{contract.milestones.length} done</span>
         </div>
-        {contract.milestones.some((m) => m.status === 'SUBMITTED') && (
+        {contract.status === 'PENDING_FREELANCER' && (
+          <div className="flex items-center gap-1 text-violet-600 font-semibold">
+            <Clock size={11} />
+            <span>Cần xem xét</span>
+          </div>
+        )}
+        {contract.status !== 'PENDING_FREELANCER' && contract.milestones.some((m) => m.status === 'SUBMITTED') && (
           <div className="flex items-center gap-1 text-amber-600 font-semibold">
             <AlertTriangle size={11} />
             <span>Chờ duyệt</span>

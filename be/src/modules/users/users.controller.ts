@@ -7,10 +7,12 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { RegisterDeviceTokenDto } from './dto/register-device-token.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccessTokenPayload } from '../../common/types/jwt-payload.type';
@@ -45,5 +47,23 @@ export class UsersController {
     @Param('sessionId') sessionId: string,
   ) {
     return this.usersService.revokeSession(user.sub, sessionId);
+  }
+
+  @Post('device-token')
+  @HttpCode(HttpStatus.OK)
+  registerDeviceToken(
+    @CurrentUser() user: AccessTokenPayload,
+    @Body() dto: RegisterDeviceTokenDto,
+  ) {
+    return this.usersService.registerDeviceToken(user.sub, dto);
+  }
+
+  @Delete('device-token/:token')
+  @HttpCode(HttpStatus.OK)
+  removeDeviceToken(
+    @CurrentUser() user: AccessTokenPayload,
+    @Param('token') token: string,
+  ) {
+    return this.usersService.removeDeviceToken(user.sub, token);
   }
 }

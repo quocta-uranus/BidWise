@@ -1,27 +1,16 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { useUnreadCount } from '@/hooks/useChat';
 import {
-  LayoutDashboard,
-  FolderOpen,
-  FileText,
-  User,
-  Settings,
-  LogOut,
-  Users,
-  Briefcase,
-  AlertTriangle,
-  Tags,
-  DollarSign,
-  GraduationCap,
-  MessageSquare,
-  Shield,
+  LayoutDashboard, FolderOpen, FileText, User, Settings,
+  LogOut, Users, Briefcase, AlertTriangle, Tags,
+  DollarSign, GraduationCap, MessageSquare, Shield,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 const roleColors: Record<string, string> = {
   CLIENT: 'bg-blue-50/10 text-blue-400 ring-blue-500/20',
@@ -30,7 +19,14 @@ const roleColors: Record<string, string> = {
   MODERATOR: 'bg-amber-50/10 text-amber-400 ring-amber-500/20',
 };
 
-export default function Sidebar() {
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  badge?: number;
+}
+
+export default function AppSidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -46,12 +42,12 @@ export default function Sidebar() {
 
   if (!mounted || isLoading) {
     return (
-      <aside className="w-64 flex flex-col min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950 border-r border-indigo-900/30">
+      <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950">
         <div className="h-16 flex items-center px-6 border-b border-indigo-950/40 gap-3">
           <div className="w-9 h-9 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl" />
           <div className="h-4 w-24 bg-slate-800 rounded animate-pulse" />
         </div>
-      </aside>
+      </div>
     );
   }
 
@@ -62,8 +58,8 @@ export default function Sidebar() {
 
   const initials = user.fullName.split(' ').map((n) => n[0]).slice(-2).join('').toUpperCase();
 
+  let navItems: NavItem[] = [];
   let portalLabel = 'Client Portal';
-  let navItems: { label: string; href: string; icon: React.ElementType; badge?: number }[] = [];
 
   if (isAdmin) {
     portalLabel = 'Admin Panel';
@@ -81,29 +77,33 @@ export default function Sidebar() {
     portalLabel = 'Pro Freelancer';
     navItems = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Projects', href: '/projects', icon: FolderOpen },
-      { label: 'Proposals', href: '/proposals', icon: FileText },
-      { label: 'Messages', href: '/messages', icon: MessageSquare, badge: unreadCount },
-      { label: 'Profile', href: '/profile', icon: User },
+      { label: 'Tìm việc', href: '/projects', icon: FolderOpen },
+      { label: 'Đề xuất của tôi', href: '/proposals', icon: FileText },
+      { label: 'Tin nhắn', href: '/messages', icon: MessageSquare, badge: unreadCount },
+      { label: 'Hồ sơ', href: '/profile', icon: User },
+      { label: 'Cài đặt', href: '/settings', icon: Settings },
     ];
   } else {
     navItems = [
       { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'My Projects', href: '/client/jobs', icon: FolderOpen },
+      { label: 'Dự án của tôi', href: '/client/jobs', icon: FolderOpen },
       { label: 'Freelancers', href: '/freelancers', icon: Briefcase },
-      { label: 'Messages', href: '/messages', icon: MessageSquare, badge: unreadCount },
+      { label: 'Tin nhắn', href: '/messages', icon: MessageSquare, badge: unreadCount },
+      { label: 'Cài đặt', href: '/settings', icon: Settings },
     ];
   }
 
   const isActive = (href: string) => {
     const tabParam = href.includes('tab=') ? href.split('tab=')[1] : null;
-    if (tabParam) return pathname.startsWith('/admin') && searchParams.get('tab') === tabParam;
+    if (tabParam) {
+      return pathname.startsWith('/admin') && searchParams.get('tab') === tabParam;
+    }
     if (href === '/dashboard') return pathname === '/dashboard';
     return pathname.startsWith(href);
   };
 
   return (
-    <aside className="w-64 flex flex-col min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950 text-slate-200 border-r border-indigo-900/30">
+    <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-950 to-indigo-950 text-slate-200 border-r border-indigo-900/30">
       {/* Brand */}
       <div className="h-16 flex items-center px-6 border-b border-indigo-950/40 gap-3 shrink-0">
         <div className="w-9 h-9 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
@@ -188,6 +188,6 @@ export default function Sidebar() {
           <span>Đăng xuất</span>
         </button>
       </div>
-    </aside>
+    </div>
   );
 }

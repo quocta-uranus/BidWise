@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { authApi } from '@/lib/api/auth.api';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, logout, updateUser } = useAuthStore();
+  const { user, isAuthenticated, isLoading, updateUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'sessions'>('profile');
 
   // Loading states
@@ -223,38 +222,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800">
-      {/* Top nav */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Link href="/dashboard" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-black text-sm">B</span>
-              </div>
-              <span className="font-bold text-slate-900 text-lg">BidWise</span>
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="text-sm text-slate-600 hover:text-slate-950 font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-            >
-              Dashboard
-            </Link>
-            <button
-              onClick={() => logout()}
-              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-red-50"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span>Đăng xuất</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
       {/* Main container */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {/* Banner feedback */}
