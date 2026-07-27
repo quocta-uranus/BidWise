@@ -12,6 +12,7 @@ import {
   getPrimaryPortal,
   portalLabels,
 } from '@/lib/auth/role-routing';
+import { Eye, EyeOff } from 'lucide-react';
 
 interface LoginFormProps {
   portal: LoginPortal;
@@ -179,7 +180,7 @@ export default function LoginForm({ portal, registerHref }: LoginFormProps) {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
-              {showPassword ? '🙈' : '👁'}
+              {showPassword ? <EyeOff /> : <Eye />}
             </button>
           </div>
         </div>
