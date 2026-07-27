@@ -26,7 +26,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-screen bg-[#f8fafc]">
+      <body className="min-h-screen bg-[#f8fafc]" suppressHydrationWarning>
         <Providers>
           <AuthProvider>
             <LanguageSync />

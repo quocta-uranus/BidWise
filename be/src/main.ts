@@ -21,11 +21,18 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: true,
       hsts: { maxAge: 31536000, includeSubDomains: true },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 
+  const allowedOrigins = (
+    configService.get<string>('app.frontendUrl') ?? 'http://localhost:3000'
+  )
+    .split(',')
+    .map((o) => o.trim());
+
   app.enableCors({
-    origin: [configService.get<string>('app.frontendUrl') ?? 'http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
