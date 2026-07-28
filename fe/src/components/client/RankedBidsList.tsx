@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Star, Check, X, GitCompare, Bookmark, Eye, Clock, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, Star, Check, X, GitCompare, Bookmark, Eye, Clock, DollarSign, FileText } from 'lucide-react';
 import { clientBidsApi, RankedBid, RankedBidsResponse } from '@/lib/api/client-bids.api';
 import BidScoreChart from './BidScoreChart';
 import FreelancerProfileModal from './FreelancerProfileModal';
@@ -325,6 +325,17 @@ export default function RankedBidsList({ jobId, jobTitle, onBidAccepted }: Props
                         className="p-1.5 rounded-lg bg-rose-100 text-rose-500 hover:bg-rose-200 transition-colors"
                       >
                         <X size={14} />
+                      </button>
+                    )}
+
+                    {/* Create contract (for accepted bids without contract yet) */}
+                    {bid.status === 'ACCEPTED' && (
+                      <button
+                        onClick={() => setCreateContractBid(bid)}
+                        title="Tạo hợp đồng"
+                        className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                      >
+                        <FileText size={14} />
                       </button>
                     )}
 
