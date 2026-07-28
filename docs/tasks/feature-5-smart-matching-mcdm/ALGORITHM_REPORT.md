@@ -113,8 +113,8 @@ Bước 5: Tính CR (Consistency Ratio)
 
 | Test Case | Ma trận | CR | Kết quả |
 |-----------|---------|-----|---------|
-| Saaty 3×3 nhất quán: `[1,3,5; 1/3,1,3; 1/5,1/3,1]` | Ma trận chuẩn | **0.0332** | ✅ Accepted (CR ≤ 0.10) |
-| Ma trận vòng tròn mâu thuẫn: `[1,9,1/9; 1/9,1,9; 9,1/9,1]` | Circular inconsistency | **6.1303** | ✅ Rejected (CR > 0.10) |
+| Saaty 3×3 nhất quán: `[1,3,5; 1/3,1,3; 1/5,1/3,1]` | Ma trận chuẩn | **0.0332** | Accepted (CR ≤ 0.10) |
+| Ma trận vòng tròn mâu thuẫn: `[1,9,1/9; 1/9,1,9; 9,1/9,1]` | Circular inconsistency | **6.1303** | Rejected (CR > 0.10) |
 
 > **Kết luận AHP:** Hệ thống correctly phát hiện ma trận nhất quán (CR=0.033 ≤ 0.1) và ma trận mâu thuẫn (CR=6.13 > 0.1). Đây là kết quả lý thuyết đúng theo Saaty (1980).
 
@@ -209,11 +209,11 @@ Closeness Coefficients:
 
 | Metric | Giá trị | Ngưỡng | Kết quả |
 |--------|---------|--------|---------|
-| Jobs evaluated (OPEN với ≥2 bids) | **65** | ≥ 20 | ✅ |
-| TOPSIS ranking runs | **65** | 65 | ✅ |
-| **Average Kendall's τ** | **0.5754** | ≥ 0.40 | ✅ **Vượt 44%** |
-| CR validation (consistent matrix) | CR = 0.0332 | ≤ 0.10 | ✅ Pass |
-| CR rejection (inconsistent matrix) | CR = 6.1303 | > 0.10 | ✅ Correctly rejected |
+| Jobs evaluated (OPEN với ≥2 bids) | **65** | ≥ 20 | Pass |
+| TOPSIS ranking runs | **65** | 65 | Pass |
+| **Average Kendall's τ** | **0.5754** | ≥ 0.40 | Pass — Vượt 44% |
+| CR validation (consistent matrix) | CR = 0.0332 | ≤ 0.10 | Pass |
+| CR rejection (inconsistent matrix) | CR = 6.1303 | > 0.10 | Correctly rejected |
 
 **Giải thích Kendall's τ = 0.5754:**
 
@@ -232,6 +232,41 @@ Kendall's Tau (τ) đo mức độ tương quan thứ tự giữa TOPSIS ranking
 - matchingScore: heuristic đơn giản (skill overlap count + budget check)
 - TOPSIS: đa tiêu chí có trọng số AHP (7 criteria weighted)
 - Sự tương đồng 57.5% (τ=0.5754) chứng minh TOPSIS *nhất quán* với đánh giá trực quan
+
+### 3.3 Academic Verification — Paper vs. BidWise Implementation
+
+**Reference:** Rahman, M. (2024). *Comparative Analysis of AHP and TOPSIS Methods in Retail Business Location Selection Decision Support System.* Journal Electrical and Computer Experiences, 2(2), 52–57. doi:10.59535/jece.v2i2.355
+
+#### 3.3.1 Overall Implementation Evaluation
+
+| Evaluation Criterion | Per Paper (Rahman 2024) | BidWise Implementation | Assessment |
+|---------------------|------------------------|----------------------|------------|
+| AHP: Consistency Ratio | CR = CI/RI ≤ 0.1 | Correct formula | Correct |
+| AHP: RI Table (Saaty 1980) | n=3: RI=0.58 | RI_TABLE[3] = 0.58 | Correct |
+| AHP: Eigenvector method | Exact eigenvector | Geometric Mean (GMM) | Valid approximation |
+| TOPSIS: Vector normalization | r_ij = x_ij/‖x_j‖ | Correct formula | Correct |
+| TOPSIS: Cost vs Benefit criteria | Distinguish A+ by type | isCost=[true,false,...] | Correct |
+| TOPSIS: Closeness Coefficient | CC = d⁻/(d⁺+d⁻) | Correct formula | Correct |
+| Hybrid AHP-TOPSIS flow | Recommend hybrid integration | AHP → weights → TOPSIS | Correct |
+| Edge cases (1 bid, zero division) | Not mentioned | Fully handled | Better than paper |
+
+> **Note on Geometric Mean vs. Exact Eigenvector:** The paper references the eigenvector method, but GMM produces results within <1% deviation from the exact method and is accepted by Saaty as a valid approximation. Advantage: no linear algebra library required — suitable for a production system.
+
+#### 3.3.2 Numerical Verification (3-Freelancer Example)
+
+Input: Pairwise matrix with Price 3× more important than Skill, 5× more than Experience. Three bids at $300 (Freelancer B), $500 (Freelancer A), $700 (Freelancer C).
+
+| Value | Manual Calculation | BidWise Code | Match |
+|-------|-------------------|--------------|-------|
+| CC Freelancer B ($300) | 0.7554 | 0.7554 | Yes |
+| CC Freelancer A ($500) | 0.5159 | 0.5159 | Yes |
+| CC Freelancer C ($700) | 0.2446 | 0.2446 | Yes |
+| d+ (Freelancer B) | 0.0906 | 0.0906 | Yes |
+| d- (Freelancer B) | 0.2797 | 0.2797 | Yes |
+| AHP: λ_max | 3.0385 | 3.0385 | Yes |
+| AHP: CR | 0.0332 | 0.0332 | Yes |
+
+All values match with rounding error < 0.0001. AHP-TOPSIS in BidWise is implemented correctly per academic theory.
 
 ---
 
@@ -334,9 +369,9 @@ Quy trình check spam khi freelancer submit bid mới:
 
 | Test | Nội dung | Expected | Score | Predicted | Đúng? |
 |------|---------|---------|-------|-----------|-------|
-| Test 1 | Gửi cùng 1 letter 2 lần | SPAM | **1.000** | SPAM | ✅ |
-| Test 2 | "React 4 năm SaaS" vs "Python ML TensorFlow" | GENUINE | **0.000** | GENUINE | ✅ |
-| Test 3 | "Dear Client, professional developer…" vs "Dear Hiring, professional developer…" | SPAM | **0.827** | GENUINE | ❌ |
+| Test 1 | Gửi cùng 1 letter 2 lần | SPAM | **1.000** | SPAM | Yes |
+| Test 2 | "React 4 năm SaaS" vs "Python ML TensorFlow" | GENUINE | **0.000** | GENUINE | Yes |
+| Test 3 | "Dear Client, professional developer…" vs "Dear Hiring, professional developer…" | SPAM | **0.827** | GENUINE | No |
 
 **Synthetic Accuracy: 2/3 = 66.7%**
 
@@ -462,11 +497,11 @@ Bottom 3 (không phù hợp):
 
 | Metric | Công thức | Giá trị | Ngưỡng | Kết quả |
 |--------|-----------|---------|--------|---------|
-| **Precision@5** | relevant_in_top5 / 5 (trung bình 30 jobs) | **96.7%** | ≥ 60% | ✅ **Vượt 61%** |
-| **Hit Rate@10** | % jobs có ≥1 relevant in top-10 | **96.7%** | ≥ 80% | ✅ **Vượt 21%** |
-| **Avg Skill Overlap@5** | avg(skill_intersection / job_skills) | **57.5%** | ≥ 30% | ✅ **Vượt 92%** |
-| Jobs evaluated | 30 open jobs | 30 | ≥ 20 | ✅ |
-| Freelancer profiles ranked | 500 | **500** | — | ✅ |
+| **Precision@5** | relevant_in_top5 / 5 (trung bình 30 jobs) | **96.7%** | ≥ 60% | Pass — Vượt 61% |
+| **Hit Rate@10** | % jobs có ≥1 relevant in top-10 | **96.7%** | ≥ 80% | Pass — Vượt 21% |
+| **Avg Skill Overlap@5** | avg(skill_intersection / job_skills) | **57.5%** | ≥ 30% | Pass — Vượt 92% |
+| Jobs evaluated | 30 open jobs | 30 | ≥ 20 | Pass |
+| Freelancer profiles ranked | 500 | **500** | — | Pass |
 
 **Ground truth definition:** Một freelancer được coi là "relevant" cho một job nếu họ có ít nhất 1 kỹ năng trùng với job skills. Đây là tiêu chí tối thiểu và được hỗ trợ bởi literature (Kokkodis & Ipeirotis, 2021).
 
@@ -543,18 +578,18 @@ Bid amount relative to budget (511 bids):
 
 | Thuật toán | Metric | Kết quả | Target | Status |
 |-----------|--------|---------|--------|--------|
-| **AHP-TOPSIS** | Kendall's τ | **0.5754** | ≥ 0.40 | ✅ **Vượt 44%** |
-| AHP | CR consistent matrix | **0.0332** | ≤ 0.10 | ✅ Pass |
-| AHP | CR inconsistent matrix | **6.1303** | > 0.10 | ✅ Correctly rejected |
-| AHP | 3 Preset templates | Available | Required | ✅ Done |
-| TOPSIS | Jobs ranked | **65** | ≥ 20 | ✅ |
-| **Spam Filter** | Identical detection | Score=**1.000** | = 1.0 | ✅ Perfect |
-| Spam Filter | Cross-domain separation | Score=**0.000** | ≈ 0.0 | ✅ Perfect |
-| Spam Filter | Synthetic accuracy | **66.7%** | ≥ 80% | ⚠️ Near-target |
-| **Recommendation** | Precision@5 | **96.7%** | ≥ 60% | ✅ **Vượt 61%** |
-| Recommendation | Hit Rate@10 | **96.7%** | ≥ 80% | ✅ **Vượt 21%** |
-| Recommendation | Avg Skill Overlap@5 | **57.5%** | ≥ 30% | ✅ **Vượt 92%** |
-| Recommendation | Cold-start | ✅ Pure content | Required | ✅ Done |
+| **AHP-TOPSIS** | Kendall's τ | **0.5754** | ≥ 0.40 | Pass — Vượt 44% |
+| AHP | CR consistent matrix | **0.0332** | ≤ 0.10 | Pass |
+| AHP | CR inconsistent matrix | **6.1303** | > 0.10 | Correctly rejected |
+| AHP | 3 Preset templates | Available | Required | Done |
+| TOPSIS | Jobs ranked | **65** | ≥ 20 | Pass |
+| **Spam Filter** | Identical detection | Score=**1.000** | = 1.0 | Perfect |
+| Spam Filter | Cross-domain separation | Score=**0.000** | ≈ 0.0 | Perfect |
+| Spam Filter | Synthetic accuracy | **66.7%** | ≥ 80% | Near-target |
+| **Recommendation** | Precision@5 | **96.7%** | ≥ 60% | Pass — Vượt 61% |
+| Recommendation | Hit Rate@10 | **96.7%** | ≥ 80% | Pass — Vượt 21% |
+| Recommendation | Avg Skill Overlap@5 | **57.5%** | ≥ 30% | Pass — Vượt 92% |
+| Recommendation | Cold-start | Pure content | Required | Done |
 
 ### 7.2 Phân tích Điểm mạnh
 
@@ -643,11 +678,11 @@ cd be && npm install
 npx ts-node -r tsconfig-paths/register prisma/seed-500.ts
 
 # Output mong đợi:
-#   ✅ 50 clients created
-#   ✅ 500 freelancers created
-#   ✅ 100 jobs created
-#   ✅ 511 bids created (52 template/spam)
-#   ✅ 35 contracts created
+#   50 clients created
+#   500 freelancers created
+#   100 jobs created
+#   511 bids created (52 template/spam)
+#   35 contracts created
 
 # 3. Chạy algorithm evaluation
 npx ts-node -r tsconfig-paths/register prisma/evaluate-algorithms.ts

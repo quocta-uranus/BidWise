@@ -28,10 +28,13 @@ import { AccessTokenPayload } from '../../common/types/jwt-payload.type';
 type AnyReq = any;
 
 const COOKIE_NAME = 'refresh_token';
+const IS_PROD = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: IS_PROD,
+  // 'none' required for cross-site requests (different fe/be domains in prod)
+  // 'lax' is safe locally (same-origin) but blocks cross-site POST in prod
+  sameSite: (IS_PROD ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
   path: '/',
 };
