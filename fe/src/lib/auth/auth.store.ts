@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { AuthUser, authApi } from '../api/auth.api';
-import { setAccessToken } from '../api/client';
+import { getAccessToken, setAccessToken } from '../api/client';
 
 interface AuthState {
   user: AuthUser | null;
@@ -35,6 +35,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // Gọi khi app khởi động — dùng RT từ cookie để lấy AT mới
   loadSession: async () => {
+    // Already have a valid access token — no need to refresh
+    if (getAccessToken()) {
+      set({ isLoading: false });
+      return;
+    }
     if (loadSessionPromise) return loadSessionPromise;
     loadSessionPromise = (async () => {
       try {
