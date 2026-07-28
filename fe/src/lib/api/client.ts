@@ -5,7 +5,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    // Required when API is tunneled through ngrok (skips the browser warning interstitial)
+    'ngrok-skip-browser-warning': '1',
+  },
 });
 
 // In-memory access token (never in localStorage)
