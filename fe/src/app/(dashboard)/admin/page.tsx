@@ -17,13 +17,13 @@ import SystemConfigPanel from '@/features/admin/SystemConfigPanel';
 import AssessmentManagement from '@/features/admin/AssessmentManagement';
 
 const TABS = [
-  { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'reports', label: 'Reports', icon: AlertTriangle },
   { id: 'categories', label: 'Category & Skill', icon: Tags },
-  { id: 'transactions', label: 'Giao dịch', icon: DollarSign },
-  { id: 'config', label: 'Cấu hình', icon: Settings },
+  { id: 'transactions', label: 'Transactions', icon: DollarSign },
+  { id: 'config', label: 'Config', icon: Settings },
   { id: 'assessment', label: 'Assessment', icon: GraduationCap },
 ] as const;
 
@@ -70,7 +70,7 @@ export default function AdminPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Admin Panel</h1>
-            <p className="text-sm text-slate-500">Quản trị nền tảng BidWise</p>
+            <p className="text-sm text-slate-500">Manage the BidWise platform</p>
           </div>
         </div>
 

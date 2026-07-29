@@ -31,27 +31,27 @@ export default function AssessmentManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Quản lý Skill Assessment</h2>
-          <p className="text-sm text-slate-500">Tạo/sửa bộ câu hỏi, xem kết quả và phân bố điểm</p>
+          <h2 className="text-lg font-bold text-slate-900">Skill Assessment Management</h2>
+          <p className="text-sm text-slate-500">Create/edit questions, view results and score distribution</p>
         </div>
         <button onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-xl">
-          <Plus className="w-4 h-4" /> Thêm câu hỏi
+          <Plus className="w-4 h-4" /> Add question
         </button>
       </div>
 
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500 uppercase">Hoàn thành</p>
+            <p className="text-xs text-slate-500 uppercase">Completed</p>
             <p className="text-2xl font-bold text-slate-900">{stats.totalCompleted}</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500 uppercase">Điểm trung bình</p>
+            <p className="text-xs text-slate-500 uppercase">Average Score</p>
             <p className="text-2xl font-bold text-slate-900">{stats.averageScore}</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500 uppercase flex items-center gap-1"><BarChart3 className="w-3 h-3" /> Phân bố level</p>
+            <p className="text-xs text-slate-500 uppercase flex items-center gap-1"><BarChart3 className="w-3 h-3" /> Level Distribution</p>
             <div className="flex gap-3 mt-1 text-sm">
               {Object.entries(stats.levelDistribution).map(([level, count]) => (
                 <span key={level} className="text-slate-600">{level}: <b>{count}</b></span>
@@ -82,9 +82,9 @@ export default function AssessmentManagement() {
                   <div className="flex gap-1 ml-4">
                     <button onClick={() => updateQ.mutate({ id: q.id, isActive: !q.isActive })}
                       className="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600">
-                      {q.isActive ? 'Tắt' : 'Bật'}
+                      {q.isActive ? 'Disable' : 'Enable'}
                     </button>
-                    <button onClick={() => { if (confirm('Xóa?')) deleteQ.mutate(q.id); }}
+                    <button onClick={() => { if (confirm('Delete?')) deleteQ.mutate(q.id); }}
                       className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -99,21 +99,21 @@ export default function AssessmentManagement() {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[80vh] overflow-y-auto">
-            <h3 className="font-semibold mb-4">Thêm câu hỏi</h3>
+            <h3 className="font-semibold mb-4">Add Question</h3>
             <textarea value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })}
-              placeholder="Câu hỏi" rows={2} className="w-full border rounded-xl p-3 text-sm mb-3" />
+              placeholder="Question" rows={2} className="w-full border rounded-xl p-3 text-sm mb-3" />
             {form.options.map((opt, i) => (
               <div key={i} className="flex items-center gap-2 mb-2">
                 <input type="radio" checked={form.correctIndex === i} onChange={() => setForm({ ...form, correctIndex: i })} />
                 <input value={opt} onChange={(e) => {
                   const opts = [...form.options]; opts[i] = e.target.value; setForm({ ...form, options: opts });
-                }} placeholder={`Đáp án ${String.fromCharCode(65 + i)}`}
+                }} placeholder={`Answer ${String.fromCharCode(65 + i)}`}
                   className="flex-1 border rounded-xl p-2 text-sm" />
               </div>
             ))}
             <div className="flex gap-2 justify-end mt-4">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm bg-slate-100 rounded-xl">Hủy</button>
-              <button onClick={handleCreate} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl">Tạo</button>
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm bg-slate-100 rounded-xl">Cancel</button>
+              <button onClick={handleCreate} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl">Create</button>
             </div>
           </div>
         </div>

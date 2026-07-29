@@ -40,10 +40,11 @@ async function main() {
 
   // ── 3. Categories ─────────────────────────────────────────────────────────
   const categories = [
-    { name: 'Web Development', description: 'Websites, web apps, frontend/backend' },
-    { name: 'Mobile Development', description: 'iOS and Android app development' },
-    { name: 'UI/UX Design', description: 'User interface and user experience design' },
-    { name: 'Digital Marketing', description: 'SEO, social media, and digital marketing' },
+    { name: 'Web Development', description: 'Xây dựng website Frontend & Backend' },
+    { name: 'Mobile Development', description: 'Phát triển ứng dụng Android/iOS' },
+    { name: 'UI/UX Design', description: 'Thiết kế giao diện, wireframe, prototype' },
+    { name: 'Digital Marketing', description: 'SEO, Facebook Ads, Google Ads' },
+    { name: 'Graphic Design', description: 'Thiết kế banner, logo, poster' },
     { name: 'Writing & Translation', description: 'Content writing and translation' },
     { name: 'Video & Animation', description: 'Video editing, animation, motion graphics' },
     { name: 'Data & AI', description: 'Data analysis, machine learning, AI solutions' },
@@ -59,6 +60,29 @@ async function main() {
     catMap[cat.name] = c.id;
   }
   console.log('✅ Categories seeded');
+
+  // ── 3b. Skills (admin Category & Skill) ───────────────────────────────────
+  const skills = [
+    { name: 'React', category: 'Web Development', description: 'Thư viện JavaScript cho frontend' },
+    { name: 'NestJS', category: 'Web Development', description: 'Framework backend Node.js' },
+    { name: 'Figma', category: 'UI/UX Design', description: 'Thiết kế UI/UX, prototype' },
+    { name: 'React Native', category: 'Mobile Development', description: 'Phát triển app đa nền tảng' },
+    { name: 'SEO', category: 'Digital Marketing', description: 'Tối ưu hóa công cụ tìm kiếm' },
+    { name: 'Photoshop', category: 'Graphic Design', description: 'Chỉnh sửa ảnh, thiết kế đồ họa' },
+  ];
+  for (const skill of skills) {
+    const categoryId = catMap[skill.category];
+    await prisma.skill.upsert({
+      where: { name: skill.name },
+      update: { description: skill.description, categoryId: categoryId ?? null },
+      create: {
+        name: skill.name,
+        description: skill.description,
+        categoryId: categoryId ?? null,
+      },
+    });
+  }
+  console.log('✅ Skills seeded');
 
   // ── 4. Users ──────────────────────────────────────────────────────────────
   const password = await bcrypt.hash('Password123!', 10);
@@ -725,7 +749,8 @@ Hùng`,
   console.log('  FREELANCER: freelancer3@bidwise.dev / Password123!');
   console.log('─'.repeat(50));
   console.log('📋 Data created:');
-  console.log('  • 8 categories');
+  console.log('  • 9 categories');
+  console.log('  • 6 skills');
   console.log('  • 5 users (1 client, 1 client2, 3 freelancers)');
   console.log('  • 3 freelancer profiles with portfolio items');
   console.log('  • 4 jobs (3 OPEN for bidding, 1 IN_PROGRESS)');

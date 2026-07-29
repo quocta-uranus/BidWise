@@ -30,13 +30,13 @@ export default function SystemConfigPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Cấu hình Hệ thống</h2>
-          <p className="text-sm text-slate-500">Thiết lập tham số nền tảng</p>
+          <h2 className="text-lg font-bold text-slate-900">System Configuration</h2>
+          <p className="text-sm text-slate-500">Set platform parameters</p>
         </div>
         <button onClick={handleSave} disabled={updateConfig.isPending}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm rounded-xl disabled:opacity-50">
           {updateConfig.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Lưu thay đổi
+          Save changes
         </button>
       </div>
 

@@ -35,15 +35,15 @@ export default function JobManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Quản lý Job</h2>
-          <p className="text-sm text-slate-500">Xem, ẩn hoặc xóa job vi phạm chính sách</p>
+          <h2 className="text-lg font-bold text-slate-900">Job Management</h2>
+          <p className="text-sm text-slate-500">View, hide or delete jobs that violate policy</p>
         </div>
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Tìm job..."
+            placeholder="Search jobs..."
             className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
@@ -69,7 +69,7 @@ export default function JobManagement() {
                 <tr key={job.id} className={job.isHidden ? 'bg-red-50/30' : ''}>
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-900">{job.title}</p>
-                    {job.isHidden && <p className="text-xs text-red-500">Ẩn: {job.hiddenReason}</p>}
+                    {job.isHidden && <p className="text-xs text-red-500">Hidden: {job.hiddenReason}</p>}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{job.client.fullName}</td>
                   <td className="px-4 py-3 text-slate-600">{job.category.name}</td>
@@ -82,16 +82,16 @@ export default function JobManagement() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       {job.isHidden ? (
-                        <button onClick={() => unhideJob.mutate(job.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Hiện job">
+                        <button onClick={() => unhideJob.mutate(job.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Unhide job">
                           <Eye className="w-4 h-4" />
                         </button>
                       ) : (
-                        <button onClick={() => setHideJobId(job.id)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Ẩn job">
+                        <button onClick={() => setHideJobId(job.id)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg" title="Hide job">
                           <EyeOff className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => { if (confirm('Xóa job này?')) deleteJob.mutate(job.id); }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg" title="Xóa">
+                      <button onClick={() => { if (confirm('Delete this job?')) deleteJob.mutate(job.id); }}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -106,25 +106,25 @@ export default function JobManagement() {
       {data && data.total > data.limit && (
         <div className="flex justify-center gap-2">
           <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Trước</button>
-          <span className="px-3 py-1.5 text-sm text-slate-600">Trang {page} / {Math.ceil(data.total / data.limit)}</span>
+            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Previous</button>
+          <span className="px-3 py-1.5 text-sm text-slate-600">Page {page} / {Math.ceil(data.total / data.limit)}</span>
           <button disabled={page >= Math.ceil(data.total / data.limit)} onClick={() => setPage(page + 1)}
-            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Sau</button>
+            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Next</button>
         </div>
       )}
 
       {hideJobId && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="font-semibold text-slate-900 mb-3">Ẩn Job</h3>
+            <h3 className="font-semibold text-slate-900 mb-3">Hide Job</h3>
             <textarea value={hideReason} onChange={(e) => setHideReason(e.target.value)}
-              placeholder="Lý do ẩn job (spam, scam, fake...)"
+              placeholder="Reason for hiding job (spam, scam, fake...)"
               rows={3} className="w-full border border-slate-200 rounded-xl p-3 text-sm mb-4" />
             <div className="flex gap-2 justify-end">
               <button onClick={() => { setHideJobId(null); setHideReason(''); }}
-                className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-xl">Hủy</button>
+                className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-xl">Cancel</button>
               <button onClick={handleHide} disabled={!hideReason.trim() || hideJob.isPending}
-                className="px-4 py-2 text-sm text-white bg-amber-600 rounded-xl disabled:opacity-50">Ẩn Job</button>
+                className="px-4 py-2 text-sm text-white bg-amber-600 rounded-xl disabled:opacity-50">Hide Job</button>
             </div>
           </div>
         </div>

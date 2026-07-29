@@ -51,12 +51,12 @@ export default function UserManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Quản lý User</h2>
-          <p className="text-sm text-slate-500">Tìm kiếm, xem profile, khóa/mở khóa, đổi role</p>
+          <h2 className="text-lg font-bold text-slate-900">User Management</h2>
+          <p className="text-sm text-slate-500">Search, view profiles, suspend/unsuspend, manage roles</p>
         </div>
         <button onClick={() => setShowCreateModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl">
-          <Plus className="w-4 h-4" /> Thêm tài khoản
+          <Plus className="w-4 h-4" /> Add user
         </button>
       </div>
 
@@ -117,19 +117,19 @@ export default function UserManagement() {
 
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
                 <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-slate-500" /> Trạng thái tài khoản
+                  <AlertTriangle className="w-4 h-4 text-slate-500" /> Account status
                 </h3>
                 {selectedUser.status === 'SUSPENDED' ? (
-                  <button onClick={() => { if (confirm('Mở khóa?')) unsuspendUser.mutate(selectedUser.id); }}
+                  <button onClick={() => { if (confirm('Unsuspend?')) unsuspendUser.mutate(selectedUser.id); }}
                     disabled={unsuspendUser.isPending}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm rounded-xl disabled:opacity-50">
                     {unsuspendUser.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
-                    Mở khóa
+                    Unsuspend
                   </button>
                 ) : showSuspendForm ? (
                   <div className="space-y-3">
                     <textarea value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)}
-                      placeholder="Lý do khóa..." rows={3}
+                      placeholder="Suspension reason..." rows={3}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm resize-none" />
                     <div className="flex gap-2">
                       <button onClick={() => {
@@ -139,16 +139,16 @@ export default function UserManagement() {
                       }} disabled={!suspendReason.trim() || suspendUser.isPending}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm rounded-xl disabled:opacity-50">
                         {suspendUser.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                        Xác nhận khóa
+                        Confirm suspension
                       </button>
                       <button onClick={() => { setShowSuspendForm(false); setSuspendReason(''); }}
-                        className="px-4 py-2 text-sm bg-slate-100 rounded-xl">Hủy</button>
+                        className="px-4 py-2 text-sm bg-slate-100 rounded-xl">Cancel</button>
                     </div>
                   </div>
                 ) : (
                   <button onClick={() => setShowSuspendForm(true)}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm rounded-xl">
-                    <Lock className="w-4 h-4" /> Khóa tài khoản
+                    <Lock className="w-4 h-4" /> Suspend account
                   </button>
                 )}
               </div>
@@ -156,8 +156,8 @@ export default function UserManagement() {
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-900 mb-1">Chọn user</h3>
-              <p className="text-xs text-slate-500">Click vào user để quản lý role và trạng thái</p>
+          <h3 className="text-sm font-semibold text-slate-900 mb-1">Select user</h3>
+          <p className="text-xs text-slate-500">Click on a user to manage roles and status</p>
             </div>
           )}
         </div>

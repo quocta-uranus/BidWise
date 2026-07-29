@@ -24,8 +24,8 @@ export function useHideJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ jobId, reason }: { jobId: string; reason: string }) => adminApi.hideJob(jobId, reason),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Đã ẩn job'); },
-    onError: () => toast.error('Không thể ẩn job'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Job hidden successfully'); },
+    onError: () => toast.error('Unable to hide job'),
   });
 }
 
@@ -33,8 +33,8 @@ export function useUnhideJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => adminApi.unhideJob(jobId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Đã hiện job'); },
-    onError: () => toast.error('Không thể hiện job'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Job unhidden successfully'); },
+    onError: () => toast.error('Unable to unhide job'),
   });
 }
 
@@ -42,8 +42,8 @@ export function useDeleteJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (jobId: string) => adminApi.deleteJob(jobId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Đã xóa job'); },
-    onError: () => toast.error('Không thể xóa job'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Job deleted successfully'); },
+    onError: () => toast.error('Unable to delete job'),
   });
 }
 
@@ -59,8 +59,8 @@ export function useResolveReport() {
   return useMutation({
     mutationFn: ({ reportId, ...data }: { reportId: string; status: string; resolution?: string; action?: string }) =>
       adminApi.resolveReport(reportId, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Đã xử lý report'); },
-    onError: () => toast.error('Không thể xử lý report'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Report resolved successfully'); },
+    onError: () => toast.error('Unable to resolve report'),
   });
 }
 
@@ -89,8 +89,8 @@ export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; description?: string }) => adminApi.createCategory(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'categories'] }); toast.success('Đã tạo category'); },
-    onError: () => toast.error('Không thể tạo category'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'categories'] }); toast.success('Category created successfully'); },
+    onError: () => toast.error('Unable to create category'),
   });
 }
 
@@ -99,8 +99,8 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isHidden?: boolean }) =>
       adminApi.updateCategory(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'categories'] }); toast.success('Đã cập nhật'); },
-    onError: () => toast.error('Không thể cập nhật'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'categories'] }); toast.success('Category updated successfully'); },
+    onError: () => toast.error('Unable to update category'),
   });
 }
 
@@ -108,8 +108,8 @@ export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => adminApi.deleteCategory(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'categories'] }); toast.success('Đã xóa'); },
-    onError: () => toast.error('Không thể xóa category'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'categories'] }); toast.success('Category deleted successfully'); },
+    onError: () => toast.error('Unable to delete category'),
   });
 }
 
@@ -117,8 +117,8 @@ export function useCreateSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; categoryId?: string; description?: string }) => adminApi.createSkill(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'skills'] }); toast.success('Đã tạo skill'); },
-    onError: () => toast.error('Không thể tạo skill'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'skills'] }); toast.success('Skill created successfully'); },
+    onError: () => toast.error('Unable to create skill'),
   });
 }
 
@@ -127,8 +127,8 @@ export function useUpdateSkill() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; categoryId?: string; description?: string; isHidden?: boolean }) =>
       adminApi.updateSkill(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'skills'] }); toast.success('Đã cập nhật'); },
-    onError: () => toast.error('Không thể cập nhật'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'skills'] }); toast.success('Skill updated successfully'); },
+    onError: () => toast.error('Unable to update skill'),
   });
 }
 
@@ -136,8 +136,8 @@ export function useDeleteSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => adminApi.deleteSkill(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'skills'] }); toast.success('Đã xóa'); },
-    onError: () => toast.error('Không thể xóa skill'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'skills'] }); toast.success('Skill deleted successfully'); },
+    onError: () => toast.error('Unable to delete skill'),
   });
 }
 
@@ -153,8 +153,8 @@ export function useRefundTransaction() {
   return useMutation({
     mutationFn: ({ transactionId, reason }: { transactionId: string; reason?: string }) =>
       adminApi.refundTransaction(transactionId, reason),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'transactions'] }); toast.success('Đã hoàn tiền'); },
-    onError: () => toast.error('Không thể hoàn tiền'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'transactions'] }); toast.success('Refund processed successfully'); },
+    onError: () => toast.error('Unable to process refund'),
   });
 }
 
@@ -169,8 +169,8 @@ export function useUpdateSystemConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (configs: { key: string; value: string }[]) => adminApi.bulkUpdateConfig(configs),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'config'] }); toast.success('Đã lưu cấu hình'); },
-    onError: () => toast.error('Không thể lưu cấu hình'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'config'] }); toast.success('Configuration saved successfully'); },
+    onError: () => toast.error('Unable to save configuration'),
   });
 }
 
@@ -192,8 +192,8 @@ export function useCreateAssessmentQuestion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: adminApi.createAssessmentQuestion,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'assessment'] }); toast.success('Đã thêm câu hỏi'); },
-    onError: () => toast.error('Không thể thêm câu hỏi'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'assessment'] }); toast.success('Question added successfully'); },
+    onError: () => toast.error('Unable to add question'),
   });
 }
 
@@ -202,8 +202,8 @@ export function useUpdateAssessmentQuestion() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
       adminApi.updateAssessmentQuestion(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'assessment'] }); toast.success('Đã cập nhật'); },
-    onError: () => toast.error('Không thể cập nhật'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'assessment'] }); toast.success('Question updated successfully'); },
+    onError: () => toast.error('Unable to update question'),
   });
 }
 
@@ -211,7 +211,7 @@ export function useDeleteAssessmentQuestion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => adminApi.deleteAssessmentQuestion(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'assessment'] }); toast.success('Đã xóa'); },
-    onError: () => toast.error('Không thể xóa'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin', 'assessment'] }); toast.success('Question deleted successfully'); },
+    onError: () => toast.error('Unable to delete question'),
   });
 }

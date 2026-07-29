@@ -30,12 +30,12 @@ export default function TransactionManagement() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Quản lý Giao dịch</h2>
-          <p className="text-sm text-slate-500">Xem tất cả giao dịch, điều tra lỗi, hoàn tiền thủ công</p>
+          <h2 className="text-lg font-bold text-slate-900">Transaction Management</h2>
+          <p className="text-sm text-slate-500">View all transactions, investigate issues, issue refunds manually</p>
         </div>
         <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           className="border border-slate-200 rounded-xl px-3 py-2 text-sm">
-          <option value="">Tất cả status</option>
+          <option value="">All statuses</option>
           <option value="SUCCESS">Success</option>
           <option value="PENDING">Pending</option>
           <option value="FAILED">Failed</option>
@@ -50,11 +50,11 @@ export default function TransactionManagement() {
             <thead className="bg-slate-50 border-b">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">User</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Loại</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Số tiền</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Mô tả</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Type</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Amount</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Description</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Date</th>
                 <th className="text-right px-4 py-3 font-medium text-slate-600">Actions</th>
               </tr>
             </thead>
@@ -75,9 +75,9 @@ export default function TransactionManagement() {
                   <td className="px-4 py-3 text-right">
                     {tx.status === 'SUCCESS' && tx.type !== 'REFUND' && (
                       <button onClick={() => {
-                        const reason = prompt('Lý do hoàn tiền:');
+                        const reason = prompt('Refund reason:');
                         if (reason !== null) refund.mutate({ transactionId: tx.id, reason });
-                      }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Hoàn tiền">
+                      }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Refund">
                         <RotateCcw className="w-4 h-4" />
                       </button>
                     )}
@@ -92,10 +92,10 @@ export default function TransactionManagement() {
       {data && data.total > data.limit && (
         <div className="flex justify-center gap-2">
           <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Trước</button>
-          <span className="px-3 py-1.5 text-sm text-slate-600">Trang {page}</span>
+            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Previous</button>
+          <span className="px-3 py-1.5 text-sm text-slate-600">Page {page}</span>
           <button disabled={page >= Math.ceil(data.total / data.limit)} onClick={() => setPage(page + 1)}
-            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Sau</button>
+            className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-40">Next</button>
         </div>
       )}
     </div>

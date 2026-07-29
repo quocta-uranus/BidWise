@@ -41,11 +41,11 @@ export default function CategorySkillManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Category & Skill</h2>
-          <p className="text-sm text-slate-500">CRUD danh mục ngành và kỹ năng</p>
+          <p className="text-sm text-slate-500">Manage categories and skills</p>
         </div>
         <button onClick={() => setShowForm(true)}
           className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm rounded-xl">
-          <Plus className="w-4 h-4" /> Thêm mới
+          <Plus className="w-4 h-4" /> Add new
         </button>
       </div>
 
@@ -67,8 +67,8 @@ export default function CategorySkillManagement() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Tên</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Mô tả</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Name</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Description</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Jobs</th>
                 <th className="text-right px-4 py-3 font-medium text-slate-600">Actions</th>
               </tr>
@@ -85,7 +85,7 @@ export default function CategorySkillManagement() {
                         className="p-1.5 text-slate-500 hover:bg-slate-50 rounded-lg">
                         {c.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
-                      <button onClick={() => { if (confirm('Xóa?')) deleteCategory.mutate(c.id); }}
+                      <button onClick={() => { if (confirm('Delete?')) deleteCategory.mutate(c.id); }}
                         className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -115,7 +115,7 @@ export default function CategorySkillManagement() {
                         className="p-1.5 text-slate-500 hover:bg-slate-50 rounded-lg">
                         {s.isHidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
-                      <button onClick={() => { if (confirm('Xóa?')) deleteSkill.mutate(s.id); }}
+                      <button onClick={() => { if (confirm('Delete?')) deleteSkill.mutate(s.id); }}
                         className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -131,15 +131,15 @@ export default function CategorySkillManagement() {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="font-semibold mb-4">Thêm {tab === 'categories' ? 'Category' : 'Skill'}</h3>
-            <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Tên"
+            <h3 className="font-semibold mb-4">Add {tab === 'categories' ? 'Category' : 'Skill'}</h3>
+            <input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Name"
               className="w-full border border-slate-200 rounded-xl p-3 text-sm mb-3" />
-            <input value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="Mô tả (tuỳ chọn)"
+            <input value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="Description (optional)"
               className="w-full border border-slate-200 rounded-xl p-3 text-sm mb-4" />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm bg-slate-100 rounded-xl">Hủy</button>
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm bg-slate-100 rounded-xl">Cancel</button>
               <button onClick={handleCreate} disabled={!formName.trim()}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl disabled:opacity-50">Tạo</button>
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-xl disabled:opacity-50">Create</button>
             </div>
           </div>
         </div>

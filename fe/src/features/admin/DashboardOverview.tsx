@@ -42,40 +42,40 @@ export default function DashboardOverview() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-bold text-slate-900">Dashboard Tổng Quan</h2>
-        <p className="text-sm text-slate-500">Thống kê realtime của nền tảng</p>
+        <h2 className="text-lg font-bold text-slate-900">Dashboard Overview</h2>
+        <p className="text-sm text-slate-500">Real-time platform metrics</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Tổng Users" value={stats.users.total} sub={`${stats.users.active} active · ${stats.users.suspended} suspended`}
+        <StatCard label="Total Users" value={stats.users.total} sub={`${stats.users.active} active · ${stats.users.suspended} suspended`}
           icon={Users} color="bg-blue-50 text-blue-600" />
-        <StatCard label="Tổng Jobs" value={stats.jobs.total} sub={`${stats.jobs.open} đang mở · ${stats.jobs.hidden} đã ẩn`}
+        <StatCard label="Total Jobs" value={stats.jobs.total} sub={`${stats.jobs.open} open · ${stats.jobs.hidden} hidden`}
           icon={Briefcase} color="bg-violet-50 text-violet-600" />
-        <StatCard label="Tổng Bids" value={stats.bids.total}
+        <StatCard label="Total Bids" value={stats.bids.total}
           icon={Gavel} color="bg-amber-50 text-amber-600" />
-        <StatCard label="Hợp đồng" value={stats.contracts.total} sub={`${stats.contracts.active} active`}
+        <StatCard label="Contracts" value={stats.contracts.total} sub={`${stats.contracts.active} active`}
           icon={FileText} color="bg-emerald-50 text-emerald-600" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Doanh thu" value={`$${stats.revenue.total.toLocaleString()}`}
+        <StatCard label="Revenue" value={`$${stats.revenue.total.toLocaleString()}`}
           icon={DollarSign} color="bg-green-50 text-green-600" />
-        <StatCard label="Tỷ lệ hoàn thành" value={`${stats.contracts.completionRate}%`}
-          sub={`${stats.contracts.completed} hợp đồng hoàn thành`}
+        <StatCard label="Completion Rate" value={`${stats.contracts.completionRate}%`}
+          sub={`${stats.contracts.completed} contracts completed`}
           icon={CheckCircle} color="bg-teal-50 text-teal-600" />
-        <StatCard label="Tỷ lệ tranh chấp" value={`${stats.contracts.disputeRate}%`}
-          sub={`${stats.contracts.disputed} đang tranh chấp`}
+        <StatCard label="Dispute Rate" value={`${stats.contracts.disputeRate}%`}
+          sub={`${stats.contracts.disputed} in dispute`}
           icon={AlertTriangle} color="bg-red-50 text-red-600" />
-        <StatCard label="Reports chờ xử lý" value={stats.reports.pending}
+        <StatCard label="Pending Reports" value={stats.reports.pending}
           icon={TrendingUp} color="bg-orange-50 text-orange-600" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Giao dịch" value={stats.transactions.total}
-          sub={`${stats.transactions.failed} thất bại`}
+        <StatCard label="Transactions" value={stats.transactions.total}
+          sub={`${stats.transactions.failed} failed`}
           icon={BarChart3} color="bg-slate-50 text-slate-600" />
-        <StatCard label="Assessment hoàn thành" value={stats.assessment.completedCount}
-          sub={`Điểm TB: ${stats.assessment.averageScore}`}
+        <StatCard label="Assessments Completed" value={stats.assessment.completedCount}
+          sub={`Avg score: ${stats.assessment.averageScore}`}
           icon={BarChart3} color="bg-indigo-50 text-indigo-600" />
       </div>
     </div>
