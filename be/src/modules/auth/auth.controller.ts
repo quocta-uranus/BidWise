@@ -29,12 +29,12 @@ type AnyReq = any;
 
 const COOKIE_NAME = 'refresh_token';
 const IS_PROD = process.env.NODE_ENV === 'production';
+// Use COOKIE_SAME_SITE=none + COOKIE_SECURE=true in dev when FE/BE are cross-origin (e.g. ngrok)
+const sameSiteEnv = process.env.COOKIE_SAME_SITE as 'none' | 'lax' | 'strict' | undefined;
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: IS_PROD,
-  // 'none' required for cross-site requests (different fe/be domains in prod)
-  // 'lax' is safe locally (same-origin) but blocks cross-site POST in prod
-  sameSite: (IS_PROD ? 'none' : 'lax') as 'none' | 'lax',
+  secure: IS_PROD || process.env.COOKIE_SECURE === 'true',
+  sameSite: (sameSiteEnv ?? (IS_PROD ? 'none' : 'lax')) as 'none' | 'lax' | 'strict',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
   path: '/',
 };
