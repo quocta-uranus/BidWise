@@ -171,15 +171,19 @@ export default function CreateContractModal({ bidId, bidAmount, jobTitle, onClos
                       <label className="block text-xs text-slate-600 mb-1">% Giá trị *</label>
                       <div className="relative">
                         <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={m.percentage}
-                          onChange={(e) => updateMilestone(idx, 'percentage', Number(e.target.value))}
-                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 pr-10"
+                          type="text"
+                          inputMode="numeric"
+                          value={m.percentage === 0 ? '' : m.percentage}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const val = raw === '' ? 0 : Math.min(100, parseInt(raw, 10));
+                            updateMilestone(idx, 'percentage', val);
+                          }}
+                          placeholder="0"
+                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 pr-24"
                         />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                          = ${Math.round((m.percentage / 100) * bidAmount).toLocaleString()}
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 whitespace-nowrap">
+                          % = ${Math.round((m.percentage / 100) * bidAmount).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -195,11 +199,15 @@ export default function CreateContractModal({ bidId, bidAmount, jobTitle, onClos
                     <div>
                       <label className="block text-xs text-slate-600 mb-1">Số lần revision tối đa</label>
                       <input
-                        type="number"
-                        min={0}
-                        max={10}
-                        value={m.maxRevisions}
-                        onChange={(e) => updateMilestone(idx, 'maxRevisions', Number(e.target.value))}
+                        type="text"
+                        inputMode="numeric"
+                        value={m.maxRevisions === 0 ? '' : m.maxRevisions}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^0-9]/g, '');
+                          const val = raw === '' ? 0 : Math.min(10, parseInt(raw, 10));
+                          updateMilestone(idx, 'maxRevisions', val);
+                        }}
+                        placeholder="0"
                         className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
