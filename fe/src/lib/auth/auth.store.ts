@@ -33,11 +33,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 
-  // Gọi khi app khởi động — dùng RT từ cookie để lấy AT mới
+  // Gọi khi app khởi động — đọc AT từ sessionStorage (survive F5), fallback sang RT cookie
   loadSession: async () => {
-    // Already have a valid access token — no need to refresh
-    if (getAccessToken()) {
-      set({ isLoading: false });
+    const existingAt = getAccessToken(); // reads sessionStorage if memory empty
+    if (existingAt) {
+      // AT còn trong sessionStorage, verify bằng /me
+      try {
+        const meRes = await authApi.getMe();
+        set({ user: meRes.data.data, isAuthenticated: true, isLoading: false });
+      } catch {
+        // AT hết hạn hoặc invalid → thử refresh
+        setAccessToken(null);
+        return get().loadSession();
+      }
       return;
     }
     if (loadSessionPromise) return loadSessionPromise;

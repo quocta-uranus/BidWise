@@ -12,14 +12,22 @@ export const apiClient = axios.create({
   },
 });
 
-// In-memory access token (never in localStorage)
+// In-memory access token (sessionStorage as F5-persistent cache)
+const SESSION_KEY = 'bw_at';
 let accessToken: string | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) sessionStorage.setItem(SESSION_KEY, token);
+    else sessionStorage.removeItem(SESSION_KEY);
+  }
 }
 
 export function getAccessToken() {
+  if (!accessToken && typeof window !== 'undefined') {
+    accessToken = sessionStorage.getItem(SESSION_KEY);
+  }
   return accessToken;
 }
 
