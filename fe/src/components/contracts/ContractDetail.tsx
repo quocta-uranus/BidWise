@@ -259,34 +259,36 @@ export default function ContractDetail({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white z-10">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-900">{contract.title}</h2>
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+        <div className="flex items-start justify-between p-5 border-b border-slate-100 sticky top-0 bg-white z-10 gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-bold text-slate-900 leading-snug truncate">{contract.title}</h2>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium shrink-0">
                 {STATUS_LABELS[contract.status] ?? contract.status}
               </span>
+              <span className="text-xs text-slate-400">·</span>
+              <span className="text-xs text-slate-500 truncate">
+                {userRole === "client" ? "Freelancer" : "Client"}:{" "}
+                {userRole === "client"
+                  ? contract.freelancer.fullName
+                  : contract.client.fullName}
+              </span>
+              <span className="text-xs text-slate-400">·</span>
+              <span className="text-xs font-semibold text-slate-700 shrink-0">${contract.totalAmount.toLocaleString()}</span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {userRole === "client" ? "Freelancer" : "Client"}:{" "}
-              {userRole === "client"
-                ? contract.freelancer.fullName
-                : contract.client.fullName}
-              {" · "}${contract.totalAmount.toLocaleString()}
-            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={openChat}
               disabled={openingChat}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
             >
-              <MessageSquare size={14} />{" "}
+              <MessageSquare size={14} />
               {openingChat ? "Đang mở..." : "Nhắn tin"}
             </button>
             <button
               onClick={onClose}
-              className="p-1 text-slate-400 hover:text-slate-700"
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
             >
               <X size={18} />
             </button>
